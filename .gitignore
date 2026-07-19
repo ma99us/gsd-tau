@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+dist-electron/
+out/
+build/
+release/
+*.tsbuildinfo
+
+# Electron-builder
+release-builds/
+app-builds/
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.snap
+*.AppImage
+
+# Vite
+.vite/
+
+# Test output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# OS
+$RECYCLE.BIN/
+[Dd]esktop.ini
+
+# pi / GSD runtime state
+.gsd/runtime/
+.gsd/activity/
+.gsd/worktrees/
+.gsd/last-snapshot.md
+.gsd/notifications.jsonl
+.gsd/gsd.db
+.gsd/gsd.db-shm
+.gsd/gsd.db-wal
+.gsd/CODEBASE.md
+
+# pi bg_shell tool state
+.bg-shell/

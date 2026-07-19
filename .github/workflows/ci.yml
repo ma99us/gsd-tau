@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs-only-guard:
+    # Phase 0: repo is design-only. This job passes trivially so branch
+    # protection can require "CI / docs-only-guard" now, and we replace it
+    # with real lint/test/build jobs once Phase 1 lands source code.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify docs structure
+        run: |
+          $required = @(
+            'AGENTS.md',
+            'README.md',
+            'docs/README.md',
+            'docs/00-vision-and-requirements.md',
+            'docs/10-architecture.md',
+            'docs/20-pi-integration.md',
+            'docs/30-persistence.md',
+            'docs/40-ui-design.md',
+            'docs/50-auto-run-view.md',
+            'docs/60-model-and-context.md',
+            'docs/70-auth-github-copilot.md',
+            'docs/80-forward-compatibility.md',
+            'docs/90-tech-stack.md',
+            'docs/plan/ROADMAP.md',
+            'docs/plan/PHASE-1-session-manager.md',
+            'docs/plan/PHASE-2-ui-request-bridge.md',
+            'docs/plan/PHASE-3-project-and-session-switcher.md'
+          )
+          $missing = 0
+          foreach ($f in $required) {
+            if (-not (Test-Path $f)) {
+              Write-Host "::error file=$f::Required doc missing"
+              $missing++
+            }
+          }
+          if ($missing -gt 0) { exit 1 }
+
+      - name: Verify all ADRs present
+        run: |
+          $count = (Get-ChildItem docs/decisions/ADR-*.md -ErrorAction SilentlyContinue).Count
+          if ($count -lt 7) {
+            Write-Host "::error::Expected at least 7 ADRs, found $count"
+            exit 1
+          }
+
+  # Placeholder jobs — enabled once Phase 1 introduces source code.
+  # All Windows jobs default to pwsh via job-level `defaults.run.shell`.
+  #
+  # lint:
+  #   runs-on: windows-latest
+  #   defaults:
+  #     run:
+  #       shell: pwsh
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: pnpm
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm lint
+  #
+  # test:
+  #   runs-on: windows-latest
+  #   defaults:
+  #     run:
+  #       shell: pwsh
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: pnpm
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm test
+  #
+  # build:
+  #   runs-on: windows-latest
+  #   needs: [lint, test]
+  #   defaults:
+  #     run:
+  #       shell: pwsh
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: pnpm
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm build
