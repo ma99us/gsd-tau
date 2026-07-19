@@ -1,0 +1,144 @@
+{
+  "schema": 2,
+  "lastWriter": "gsd-pi",
+  "lastProjectedAt": "2026-07-19T16:53:46.753Z",
+  "projections": {
+    "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
+      "sha": "a6e7383c72ef56d9",
+      "entities": [
+        "M002"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-ROADMAP.md": {
+      "sha": "509ddd2652a9d7f6",
+      "entities": [
+        "M003"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-ROADMAP.md": {
+      "sha": "fe18bbe5ca046aa7",
+      "entities": [
+        "M004"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-01-PLAN.md": {
+      "sha": "adbe1722923c7deb",
+      "entities": [
+        "M002",
+        "M002/S01"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-02-PLAN.md": {
+      "sha": "f2dab3ec01e6424e",
+      "entities": [
+        "M002",
+        "M002/S02"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-03-PLAN.md": {
+      "sha": "de6b981b9cc552df",
+      "entities": [
+        "M002",
+        "M002/S03"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-04-PLAN.md": {
+      "sha": "96702b47f676767d",
+      "entities": [
+        "M002",
+        "M002/S04"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-05-PLAN.md": {
+      "sha": "7af0f26fe3e61c85",
+      "entities": [
+        "M002",
+        "M002/S05"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-06-PLAN.md": {
+      "sha": "474f20fa78c286ab",
+      "entities": [
+        "M002",
+        "M002/S06"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-01-PLAN.md": {
+      "sha": "a5cb5851e290850b",
+      "entities": [
+        "M003",
+        "M003/S01"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-02-PLAN.md": {
+      "sha": "7dda48ecbb2398c0",
+      "entities": [
+        "M003",
+        "M003/S02"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-03-PLAN.md": {
+      "sha": "a10e0dea28d00c8c",
+      "entities": [
+        "M003",
+        "M003/S03"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-04-PLAN.md": {
+      "sha": "863045efc8935ea2",
+      "entities": [
+        "M003",
+        "M003/S04"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-05-PLAN.md": {
+      "sha": "6a880593428e6981",
+      "entities": [
+        "M003",
+        "M003/S05"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-01-PLAN.md": {
+      "sha": "f026f8ddf62fa73e",
+      "entities": [
+        "M004",
+        "M004/S01"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-02-PLAN.md": {
+      "sha": "63bf804d2375848e",
+      "entities": [
+        "M004",
+        "M004/S02"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-03-PLAN.md": {
+      "sha": "499942145ea67d22",
+      "entities": [
+        "M004",
+        "M004/S03"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-04-PLAN.md": {
+      "sha": "c99e2cc447982459",
+      "entities": [
+        "M004",
+        "M004/S04"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-05-PLAN.md": {
+      "sha": "ee37f82b87b1d0e9",
+      "entities": [
+        "M004",
+        "M004/S05"
+      ]
+    }
+  },
+  "planning": {
+    "active": false,
+    "layout": null,
+    "projections": {},
+    "passthrough": {}
+  },
+  "piVersion": ""
+}
