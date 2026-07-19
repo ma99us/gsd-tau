@@ -113,6 +113,13 @@ from `get_state`, `get_available_models`, `get_session_stats`, and live
 `cost_update` events. Never guess a context window — fall through to a raw
 token count if `ModelInfo.contextWindow` is missing.
 
+### …building the Copilot quota widget or quota service
+[docs/65-copilot-quota.md](./docs/65-copilot-quota.md) — full design: API
+endpoint, auth token source, polling cadence, rolling history schema,
+projection logic, header widget + popover layout, failure modes, and phase
+placement. Quota is account-wide (not per session). The service is always-on;
+it lives in main process and fans out to all open renderers via IPC.
+
 ### …touching GitHub Copilot or provider login
 [docs/70-auth-github-copilot.md](./docs/70-auth-github-copilot.md) and
 [ADR-003](./docs/decisions/ADR-003-delegate-auth-to-pi.md). We render a

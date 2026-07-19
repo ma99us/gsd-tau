@@ -67,6 +67,7 @@ $RECYCLE.BIN/
 .gsd/gsd.db-shm
 .gsd/gsd.db-wal
 .gsd/CODEBASE.md
+.gsd/exec/
 
 # pi bg_shell tool state
 .bg-shell/

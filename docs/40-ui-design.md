@@ -86,7 +86,8 @@ Transitions are logged (dev builds) so we can debug flaky state derivation.
 
 - Left: session display name + project path (click to reveal in Explorer).
 - Right: model picker (see [60-model-and-context.md](./60-model-and-context.md)),
-  context-window gauge, cumulative cost.
+  context-window gauge, cumulative cost, Copilot quota widget
+  (see [65-copilot-quota.md](./65-copilot-quota.md)).
 - Overflow menu (⋮): Compact context, New session, Fork, Export, Session
   settings, Close.
 

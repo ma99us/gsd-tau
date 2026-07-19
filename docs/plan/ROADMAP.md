@@ -39,11 +39,15 @@ conversation history intact.
 
 ## Later phases (sketches — get their own docs when we start them)
 
-### Phase 4 — Model picker + context gauge
-**Requirements:** R6, R7. See [60-model-and-context.md](../60-model-and-context.md).
+### Phase 4 — Model picker, context gauge, Copilot quota widget
+**Requirements:** R6, R7. See [60-model-and-context.md](../60-model-and-context.md),
+[65-copilot-quota.md](../65-copilot-quota.md).
 
 Header component with live model + gauge + cost. Model picker dropdown. Set/cycle
-model + thinking level.
+model + thinking level. Always-on quota service: polls `copilot_internal/user`
+every 15 min, maintains rolling history in `%APPDATA%\gsd-tau\quota-history.json`,
+computes burn-rate projections. Compact header widget + click-to-expand popover.
+Calendar-day projections only (work-day + holiday mode is Phase 4b stretch).
 
 ### Phase 5 — Command palette
 **Requirements:** R5 (full). See [40-ui-design.md](../40-ui-design.md#command-palette).
