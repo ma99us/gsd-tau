@@ -14,9 +14,12 @@ windows, survives reboots.
 **Config dir:** `%APPDATA%\gsd-tau\`. **AppUserModelID:** `io.opengsd.gsd-tau`.
 **pi min version:** 1.11.0.
 
-**Repo status:** design-only. No source code yet. Phase 1 is the first coding
-work — see [docs/plan/PHASE-1-session-manager.md](./docs/plan/PHASE-1-session-manager.md).
-Before adding any code, confirm which phase it belongs to.
+**Repo status:** planning complete. Phases 1–3 are fully pre-planned as GSD
+milestones M002–M004 with tasks. Start coding with `gsd auto` targeting M002
+(Phase 1 — Session Manager). No source code exists yet.
+
+See `.gsd/phases/02-.../02-CONTEXT.md` for M002 execution context. All
+decisions are captured there — do not re-derive from scratch.
 
 ## Core rules (always apply)
 
@@ -24,7 +27,11 @@ Before adding any code, confirm which phase it belongs to.
   `pwsh -NoProfile -Command "..."`. Write scripts as `.ps1`. GitHub Actions
   jobs on Windows runners use `shell: pwsh`.
 - **Never touch `.gsd/gsd.db` directly.** WAL-locked single-writer. Use
-  `gsd_milestone_status` via `client.bash({ excludeFromContext: true })`.
+  `gsd_milestone_status` (GSD tool). Do NOT query via sqlite3 or node.
+- **Shell: `gsd_exec runtime:node` + `execSync('pwsh -NoProfile -Command "..."', { encoding: 'utf8', cwd, timeout })`.**
+  The `bash` tool requires WSL which is broken on this machine (Hyper-V error).
+  `bg_shell` also fails. All shell/git ops go through node execSync calling pwsh.
+  pwsh 7.6.3 confirmed.
 - **Never spawn `gsd` without `--mode rpc`.** No TUI scraping.
 - **Never import from pi's private modules** (`packages/pi-*/dist/*`). Public
   surface only: `@opengsd/rpc-client`, `@opengsd/contracts` (types).
@@ -33,8 +40,12 @@ Before adding any code, confirm which phase it belongs to.
 - **SessionManager lives in main process.** Renderer never spawns children or
   touches `.gsd/`. All access via IPC.
 - **Read before edit or write.** `read` before `edit`, verify path before `write`.
-- **pi lives at** `C:/nvm4w/nodejs/node_modules/@opengsd/gsd-pi/`. Use forward
-  slashes for the `read` tool; use the same path with backslashes in `pwsh`.
+- **pi lives at** `C:/nvm4w/nodejs/node_modules/@opengsd/gsd-pi/`. Forward
+  slashes for the `read` tool; backslashes for pwsh. RPC contract:
+  `C:/nvm4w/nodejs/node_modules/@opengsd/gsd-pi/packages/contracts/dist/rpc.d.ts`
+  — read with the `read` tool; never bundle or import it in source code.
+- **GSD milestone IDs:** M001 (unused stub), **M002** = Phase 1, **M003** = Phase 2,
+  **M004** = Phase 3. Check `gsd_milestone_status` before starting a milestone.
 
 ## Where things live
 
