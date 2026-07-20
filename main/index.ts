@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { SessionManager } from './session/session-manager'
+import { registerHandlers } from './ipc/handlers'
 
 // ── SessionManager singleton ───────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ function createMainWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   app.setAppUserModelId('io.opengsd.gsd-tau')
+  registerHandlers(sessionManager)
   createMainWindow()
 
   app.on('activate', () => {
