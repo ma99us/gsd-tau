@@ -5,6 +5,7 @@ import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { SessionManager } from './session/session-manager'
 import { registerHandlers } from './ipc/handlers'
+import { showBlockerToast } from './os/notifications'
 
 // ── SessionManager singleton ───────────────────────────────────────────────────
 
@@ -117,7 +118,7 @@ function createMainWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   app.setAppUserModelId('io.opengsd.gsd-tau')
-  registerHandlers(sessionManager)
+  registerHandlers(sessionManager, undefined, showBlockerToast)
   createMainWindow()
 
   app.on('activate', () => {

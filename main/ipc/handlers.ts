@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } from 'electron'
 import type { WebContents } from 'electron'
+import { basename } from 'node:path'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
 import type { SessionId, RpcExtensionUIRequest, UiResponseInput } from '../../shared/types'
 import { BlockerTracker } from '../session/blocker-tracker'
@@ -41,6 +42,18 @@ export const PUSH = {
  * fan-out without starting Electron.
  */
 export type GetAllWebContents = () => WebContents[]
+
+/**
+ * Injectable toast callback — called when an interactive blocker UI request
+ * arrives for a session.
+ *
+ * The default is a no-op so tests that don't exercise notifications can call
+ * `registerHandlers` with only the required arguments.
+ *
+ * @param sessionName  Human-readable session identifier (typically `basename(cwd)`).
+ * @param method       The `extension_ui_request` method (e.g. 'confirm', 'select').
+ */
+export type ShowBlockerToastFn = (sessionName: string, method: string) => void
 
 /** Bookkeeping held per open session inside the handler registry. */
 interface SessionEntry {
@@ -169,15 +182,21 @@ export function validateUiResponse(
  *    and fan out `session:ui-request-added/removed`.
  * 5. The machine's `state-changed` emission fans out `session:state-change`.
  *
- * @param manager          The live {@link SessionManager} that owns pi sessions.
- * @param getAllWebContents Injected source of active webContents (injectable for tests).
+ * @param manager              The live {@link SessionManager} that owns pi sessions.
+ * @param getAllWebContents     Injected source of active webContents (injectable for tests).
+ *                             Pass `undefined` to use the real Electron webContents.
+ * @param showBlockerToastFn   Injected toast callback fired on blocker arrival.
+ *                             Pass `undefined` to use a silent no-op.
  * @returns A cleanup function that removes all registered ipcMain handlers and
  *          tears down per-session state machines + listeners.
  */
 export function registerHandlers(
   manager: SessionManager,
-  getAllWebContents: GetAllWebContents = () => electronWebContents.getAllWebContents(),
+  getAllWebContents?: GetAllWebContents,
+  showBlockerToastFn: ShowBlockerToastFn = () => {},
 ): () => void {
+  const getWc: GetAllWebContents =
+    getAllWebContents ?? (() => electronWebContents.getAllWebContents())
   const sessions = new Map<SessionId, SessionEntry>()
 
   // ── showFolderPicker ─────────────────────────────────────────────────────────
@@ -216,12 +235,14 @@ export function registerHandlers(
       tracker.on('ui-request-added', onBlockerAdded)
       tracker.on('ui-request-removed', onBlockerRemoved)
 
-      // ── Wire tracker → IPC fan-out ────────────────────────────────────────────
+      // ── Wire tracker → IPC fan-out + toast notification ─────────────────────
       const onBlockerAddedFanOut = (req: RpcExtensionUIRequest): void => {
-        fanOut(getAllWebContents, PUSH.SESSION_UI_REQUEST_ADDED, { sessionId: id, request: req })
+        fanOut(getWc, PUSH.SESSION_UI_REQUEST_ADDED, { sessionId: id, request: req })
+        // Notify the user via a Windows toast. Debounced inside showBlockerToastFn.
+        showBlockerToastFn(basename(cwd), req.method)
       }
       const onBlockerRemovedFanOut = (requestId: string): void => {
-        fanOut(getAllWebContents, PUSH.SESSION_UI_REQUEST_REMOVED, { sessionId: id, requestId })
+        fanOut(getWc, PUSH.SESSION_UI_REQUEST_REMOVED, { sessionId: id, requestId })
       }
       tracker.on('ui-request-added', onBlockerAddedFanOut)
       tracker.on('ui-request-removed', onBlockerRemovedFanOut)
@@ -275,13 +296,13 @@ export function registerHandlers(
           console.debug(`[handlers] extension_ui_snapshot:`, JSON.stringify(ev))
         }
 
-        fanOut(getAllWebContents, PUSH.SESSION_EVENT, { sessionId: id, event: ev })
+        fanOut(getWc, PUSH.SESSION_EVENT, { sessionId: id, event: ev })
       }
 
       // ── handle 'transport-error' ─────────────────────────────────────────────
       const onTransportError = (payload: { error: unknown }): void => {
         machine.feed('transport-error')
-        fanOut(getAllWebContents, PUSH.SESSION_EVENT, {
+        fanOut(getWc, PUSH.SESSION_EVENT, {
           sessionId: id,
           event: { type: 'transport-error', error: payload.error },
         })
@@ -289,7 +310,7 @@ export function registerHandlers(
 
       // ── state-changed → fan out ──────────────────────────────────────────────
       const onStateChange = (payload: StateChangedPayload): void => {
-        fanOut(getAllWebContents, PUSH.SESSION_STATE_CHANGE, {
+        fanOut(getWc, PUSH.SESSION_STATE_CHANGE, {
           sessionId: id,
           state: payload.to,
         })
