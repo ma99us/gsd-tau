@@ -1,6 +1,8 @@
 import { EventEmitter } from 'node:events'
 import type { RpcClient, SdkAgentEvent } from '@opengsd/rpc-client'
 import type { SessionId } from '../../shared/types'
+import type { BlockerTracker } from './blocker-tracker'
+import type { SessionStateMachine } from './state-machine'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -74,6 +76,32 @@ export class SessionHandle extends EventEmitter {
   /** Current lifecycle state. Read-only via getter. */
   get clientState(): SessionClientState {
     return this._state
+  }
+
+  /**
+   * Wire a {@link BlockerTracker} to a {@link SessionStateMachine} so that
+   * `ui-request-added` and `ui-request-removed` events drive state transitions.
+   *
+   * Returns a cleanup function that removes the listeners.  Call it on session
+   * teardown or before replacing the tracker/state machine.
+   *
+   * ```ts
+   * const cleanup = handle.wireBlockerTracker(tracker, sm)
+   * // …later…
+   * cleanup()
+   * ```
+   */
+  wireBlockerTracker(tracker: BlockerTracker, sm: SessionStateMachine): () => void {
+    const onAdded = () => sm.blockerAdded()
+    const onRemoved = () => sm.blockerRemoved(tracker.size)
+
+    tracker.on('ui-request-added', onAdded)
+    tracker.on('ui-request-removed', onRemoved)
+
+    return () => {
+      tracker.off('ui-request-added', onAdded)
+      tracker.off('ui-request-removed', onRemoved)
+    }
   }
 
   /**

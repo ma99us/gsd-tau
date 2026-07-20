@@ -282,4 +282,237 @@ describe('SessionStateMachine', () => {
 
     expect(sm.listenerCount('state-changed')).toBe(0)
   })
+
+  // ── Waiting state — blockerAdded / blockerRemoved ─────────────────────────
+
+  describe('Waiting state', () => {
+    it('blockerAdded() transitions Idle → Waiting', () => {
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerAdded()
+
+      expect(sm.state).toBe('Waiting')
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual({ from: 'Idle', to: 'Waiting', trigger: 'blocker-added' })
+    })
+
+    it('blockerAdded() transitions Working → Waiting', () => {
+      sm.feed('agent_start')
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerAdded()
+
+      expect(sm.state).toBe('Waiting')
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual({ from: 'Working', to: 'Waiting', trigger: 'blocker-added' })
+    })
+
+    it('blockerAdded() from Working clears the watchdog — no timeout while waiting', () => {
+      sm.feed('agent_start')
+      sm.blockerAdded()
+
+      // Advance well past the watchdog threshold — should NOT fire
+      vi.advanceTimersByTime(WATCHDOG_MS * 2)
+
+      expect(sm.state).toBe('Waiting')
+    })
+
+    it('blockerAdded() is a no-op when Stopped', () => {
+      sm.feed('transport-error')
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerAdded()
+
+      expect(sm.state).toBe('Stopped')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('blockerAdded() while already Waiting is a no-op (multiple blockers fine)', () => {
+      sm.blockerAdded()  // Idle → Waiting
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerAdded()  // second blocker — already Waiting, no transition
+
+      expect(sm.state).toBe('Waiting')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('blockerRemoved(0) transitions Waiting → Idle when agent was idle', () => {
+      sm.blockerAdded()  // Idle → Waiting
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerRemoved(0)
+
+      expect(sm.state).toBe('Idle')
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual({ from: 'Waiting', to: 'Idle', trigger: 'blocker-removed' })
+    })
+
+    it('blockerRemoved(0) transitions Waiting → Working when agent was active', () => {
+      sm.feed('agent_start')  // Idle → Working
+      sm.blockerAdded()        // Working → Waiting
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerRemoved(0)
+
+      expect(sm.state).toBe('Working')
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual({ from: 'Waiting', to: 'Working', trigger: 'blocker-removed' })
+    })
+
+    it('blockerRemoved(0) back to Working re-arms the watchdog', () => {
+      sm.feed('agent_start')
+      sm.blockerAdded()
+      sm.blockerRemoved(0)  // Waiting → Working
+
+      // Advance past the watchdog threshold — should fire now
+      vi.advanceTimersByTime(WATCHDOG_MS)
+
+      expect(sm.state).toBe('Stopped')
+    })
+
+    it('blockerRemoved(n > 0) is a no-op — stays in Waiting', () => {
+      sm.feed('agent_start')
+      sm.blockerAdded()
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerRemoved(1)  // one blocker still open
+
+      expect(sm.state).toBe('Waiting')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('blockerRemoved(0) is a no-op when not in Waiting state', () => {
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerRemoved(0)  // called while in Idle
+
+      expect(sm.state).toBe('Idle')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('multiple blockers: last removal triggers the transition', () => {
+      sm.feed('agent_start')
+      sm.blockerAdded()  // Working → Waiting
+
+      sm.blockerRemoved(2)  // still 2 open
+      expect(sm.state).toBe('Waiting')
+
+      sm.blockerRemoved(1)  // still 1 open
+      expect(sm.state).toBe('Waiting')
+
+      sm.blockerRemoved(0)  // last one cleared → Working
+      expect(sm.state).toBe('Working')
+    })
+
+    it('agent_end while Waiting does not change state', () => {
+      sm.feed('agent_start')  // Working
+      sm.blockerAdded()        // Working → Waiting
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.feed('agent_end')  // updates preWaitingState — no visible change
+
+      expect(sm.state).toBe('Waiting')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('agent_end while Waiting causes blockerRemoved to transition to Idle', () => {
+      sm.feed('agent_start')  // Working
+      sm.blockerAdded()        // Working → Waiting
+
+      sm.feed('agent_end')    // agent finished mid-wait — preWaitingState → Idle
+      expect(sm.state).toBe('Waiting')
+
+      sm.blockerRemoved(0)    // → Idle because agent is done
+      expect(sm.state).toBe('Idle')
+    })
+
+    it('agent_start while Waiting does not change state', () => {
+      sm.blockerAdded()  // Idle → Waiting
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.feed('agent_start')  // updates preWaitingState — no visible change
+
+      expect(sm.state).toBe('Waiting')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('agent_start while Waiting causes blockerRemoved to transition to Working', () => {
+      sm.blockerAdded()        // Idle → Waiting (preWaitingState = Idle)
+      sm.feed('agent_start')  // agent started mid-wait — preWaitingState → Working
+
+      expect(sm.state).toBe('Waiting')
+
+      sm.blockerRemoved(0)    // → Working because agent is active
+      expect(sm.state).toBe('Working')
+    })
+
+    it('transport-error transitions Waiting → Stopped', () => {
+      sm.blockerAdded()  // Idle → Waiting
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.feed('transport-error')
+
+      expect(sm.state).toBe('Stopped')
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual({ from: 'Waiting', to: 'Stopped', trigger: 'transport-error' })
+    })
+
+    it('transport-error from Waiting clears preWaitingState — blockerRemoved is inert after Stopped', () => {
+      sm.blockerAdded()           // Idle → Waiting
+      sm.feed('transport-error')  // Waiting → Stopped
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerRemoved(0)  // no-op — not in Waiting any more
+
+      expect(sm.state).toBe('Stopped')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('blockerAdded() after Stopped is still a no-op (Stopped is terminal)', () => {
+      sm.blockerAdded()           // Idle → Waiting
+      sm.feed('transport-error')  // Waiting → Stopped
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.blockerAdded()  // Stopped is terminal
+
+      expect(sm.state).toBe('Stopped')
+      expect(changes).toHaveLength(0)
+    })
+
+    it('heartbeat() is a no-op in Waiting state', () => {
+      sm.blockerAdded()  // Idle → Waiting
+
+      sm.heartbeat()  // should not crash or change state
+
+      expect(sm.state).toBe('Waiting')
+    })
+
+    it('watchdog-timeout transitions Waiting → Stopped', () => {
+      sm.feed('agent_start')
+      sm.blockerAdded()  // Working → Waiting (clears watchdog)
+
+      // Feed the synthetic event directly to verify the guard works
+      const changes: StateChangedPayload[] = []
+      sm.on('state-changed', (p) => changes.push(p))
+
+      sm.feed('watchdog-timeout')
+
+      expect(sm.state).toBe('Stopped')
+      expect(changes[0]).toEqual({ from: 'Waiting', to: 'Stopped', trigger: 'watchdog-timeout' })
+    })
+  })
 })
