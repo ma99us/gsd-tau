@@ -11,7 +11,7 @@ Windows-only v1. Thin shell over user-installed pi. React renderer, Electron mai
 | Renderer framework | **React 18** | | Bland, stable, tons of Electron integration examples. Not doing anything React-specific — could swap later. |
 | Bundler | **Vite** | | Fast HMR for renderer, `vite-plugin-electron` for main-process bundling too. |
 | State (renderer) | **Zustand** | | Small, no boilerplate, one store slice per session. |
-| UI primitives | **Radix UI** + Tailwind CSS | | Accessible primitives, quick styling, dark mode ready. |
+| UI primitives | **Radix UI** + Tailwind CSS | | Accessible primitives, quick styling, dark mode ready. Token layer in [41-design-system.md](./41-design-system.md) maps all semantic values to CSS custom properties — no hardcoded colours or sizes in components. |
 | Testing | Vitest + Playwright | | Playwright drives the full app in end-to-end tests. |
 | Packaging | **electron-builder** | | Signed NSIS installer for Windows. |
 
@@ -27,7 +27,8 @@ Windows-only v1. Thin shell over user-installed pi. React renderer, Electron mai
     "zustand": "^4",
     "@radix-ui/react-dialog": "…",
     "@radix-ui/react-dropdown-menu": "…",
-    "tailwindcss": "^3"
+    "tailwindcss": "^3",
+    "class-variance-authority": "…"           // cva() for component variant API
   },
   "devDependencies": {
     "vite": "…",

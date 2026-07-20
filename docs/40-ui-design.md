@@ -57,6 +57,7 @@ Transitions are logged (dev builds) so we can debug flaky state derivation.
 ┌──────────────────────────────────────────────────────────────┐
 │  gsd-tau                     anthropic/claude-sonnet-4-5 ▼   │
 │  D:/Projects/gsd-tau         Context ██████░░░░ 62%  $0.42   │
+│  ⎇ main  ·  3 modified  ·  ↑2 unpushed                       │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │  [Auto-run panel — only shown in Auto state]                 │
@@ -84,14 +85,92 @@ Transitions are logged (dev builds) so we can debug flaky state derivation.
 
 ### Header
 
-- Left: session display name + project path (click to reveal in Explorer).
-- Right: model picker (see [60-model-and-context.md](./60-model-and-context.md)),
-  context-window gauge, cumulative cost, Copilot quota widget
-  (see [65-copilot-quota.md](./65-copilot-quota.md)).
-- Overflow menu (⋮): Compact context, New session, Fork, Export, Session
-  settings, Close.
+Three rows, always visible:
+
+```
+Row 1 │  gsd-tau (display name)      [model picker ▼]  [Context ██░ 62%]  [$0.42]  [⋮]
+Row 2 │  D:/Projects/gsd-tau  ← project path, click to reveal in Explorer
+Row 3 │  ⎇ main  ·  3 modified  ·  ↑2 unpushed         ← git status bar
+```
+
+**Row 1 — session identity + controls**
+- Left: display name (user-editable via tab right-click → Rename).
+- Right: model picker, context gauge, cost, overflow menu (⋮).
+
+**Row 2 — project path**
+- Full absolute path. Truncated from the left with `…` if too long for the
+  available width (keeps the deepest directory components visible).
+- Click → reveals the folder in Windows Explorer.
+- If the directory no longer exists on disk: shown in `--color-status-error`
+  with a `⚠` prefix.
+
+**Row 3 — git status bar**
+- Compact single line: `⎇ <branch>  ·  <dirty summary>  ·  <ahead/behind>`.
+- Clicking anywhere on row 3 opens the git status popover (see below).
+- Row 3 is hidden when git is not available in the project directory (graceful
+  degradation — no error, just absent).
+- Polling: refreshed on session focus, on `agent_end` events (the agent likely
+  changed files), and every 60 s while the session tab is active. `git status
+  --porcelain` + `git log @{u}.. --oneline` are the underlying commands, run
+  via `window.gsd.shell.gitStatus(cwd)`.
+
+#### Git status bar states
+
+| State | Display |
+|---|---|
+| Clean, no remote | `⎇ main` |
+| Clean, up to date with remote | `⎇ main  ·  ✓ up to date` |
+| Dirty (changes) | `⎇ main  ·  2 modified  ·  1 untracked` |
+| Ahead of remote | `⎇ main  ·  ↑3 unpushed` |
+| Behind remote | `⎇ main  ·  ↓1 to pull` |
+| Ahead + dirty | `⎇ feature/chat  ·  5 modified  ·  ↑2 unpushed` |
+| Detached HEAD | `⎇ abc1234 (detached)` |
+| Not a git repo | row hidden |
+| git not on PATH | row hidden |
+
+Dirty count = staged + unstaged modified/deleted files combined.
+Untracked files are shown separately when present.
+
+#### Git status popover
+
+Clicking row 3 opens a popover anchored below the header:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ⎇  main  ·  origin/main                      [Refresh] │
+│  ─────────────────────────────────────────────────────  │
+│  Staged                                                 │
+│    M  src/renderer/ui/ThemeProvider.tsx                 │
+│  ─────────────────────────────────────────────────────  │
+│  Modified (not staged)                                  │
+│    M  docs/40-ui-design.md                              │
+│    M  tailwind.config.ts                                │
+│  ─────────────────────────────────────────────────────  │
+│  Untracked                                              │
+│    ?  docs/43-git-status.md                             │
+│  ─────────────────────────────────────────────────────  │
+│  Unpushed commits (2)                                   │
+│    abc1234  Add ThinkingIndicator animation             │
+│    def5678  Add dark token overrides                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+- File paths are clickable → reveal in Explorer.
+- Sections are omitted entirely when empty (no "Staged" section if nothing
+  is staged).
+- Unpushed commits show short hash + first line of the commit message.
+- [Refresh] re-runs the git status commands immediately.
+- Popover closes on click-outside or `Escape`.
+- No git actions (commit, push, stage) — display only. git operations are
+  left to the user's preferred git tool or the agent via the composer.
+
+**Overflow menu (⋮):** Compact context, New session, Fork, Export, Session
+settings, Close.
 
 ### Chat pane
+
+> Full chat experience spec lives in [45-chat-experience.md](./45-chat-experience.md).
+> This section is a summary; the other doc is authoritative.
 
 - Turns rendered top-to-bottom, newest at the bottom, auto-scroll enabled by
   default (disabled when the user scrolls up manually — standard chat pattern).
