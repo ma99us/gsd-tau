@@ -1,0 +1,172 @@
+{
+  "runId": "uat:M002:S03:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M002",
+  "sliceId": "S03",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-20T14:34:21.847Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "UAT-01",
+      "description": "State machine: all valid transitions — pnpm test -- state-machine passes 25 tests",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "707962b2-7f0f-4ea8-939a-c0cc8309bb94"
+        }
+      ],
+      "notes": "1 test file, 25 passed, 0 failed, exit 0. Duration 601ms."
+    },
+    {
+      "id": "UAT-02",
+      "description": "State machine: watchdog timeout — watchdog test cases pass within 25-test suite",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "707962b2-7f0f-4ea8-939a-c0cc8309bb94"
+        }
+      ],
+      "notes": "Watchdog tests included in the 25-test suite, all passed."
+    },
+    {
+      "id": "UAT-03",
+      "description": "SessionManager: open / get / close lifecycle — pnpm test -- session-manager passes 29 tests",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "d1595d0c-78b0-41e6-8d92-614721f06f20"
+        }
+      ],
+      "notes": "1 test file, 29 passed, 0 failed, exit 0. Duration 658ms."
+    },
+    {
+      "id": "UAT-04",
+      "description": "SessionManager: Phase-1 single-session guard — calling open() while active throws",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "d1595d0c-78b0-41e6-8d92-614721f06f20"
+        }
+      ],
+      "notes": "Guard tests included in the 29-test suite, all passed."
+    },
+    {
+      "id": "UAT-05",
+      "description": "SessionManager: shutdown timeout fallback — client.stop() called if shutdown doesn't resolve in 3s",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "d1595d0c-78b0-41e6-8d92-614721f06f20"
+        }
+      ],
+      "notes": "Timeout fallback tests included in the 29-test suite, all passed."
+    },
+    {
+      "id": "UAT-EC1",
+      "description": "Edge case: Stopped is terminal — agent_start after Stopped is a no-op",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "707962b2-7f0f-4ea8-939a-c0cc8309bb94"
+        }
+      ],
+      "notes": "Covered within the 25-test state-machine suite, all passed."
+    },
+    {
+      "id": "UAT-EC2",
+      "description": "Edge case: Double-close prevention — no crash or double teardown on second close(id)",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "d1595d0c-78b0-41e6-8d92-614721f06f20"
+        }
+      ],
+      "notes": "Covered within the 29-test session-manager suite, all passed."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 54 tests pass: state-machine (25/25) and session-manager (29/29), both exit 0."
+}

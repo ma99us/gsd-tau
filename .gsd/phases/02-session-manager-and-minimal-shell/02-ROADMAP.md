@@ -19,7 +19,7 @@
 - [x] **S02: pi Client and Event Pump** `risk:high` `depends:[S01]`
   > After this: Node script opens a client, sends a prompt, prints every event to stdout, closes cleanly.
 
-- [ ] **S03: Session State Machine and Manager** `risk:medium` `depends:[S02]`
+- [x] **S03: Session State Machine and Manager** `risk:medium` `depends:[S02]`
   > After this: State machine unit tests pass for all valid transitions.
 
 - [ ] **S04: IPC Bridge and Preload** `risk:medium` `depends:[S03]`

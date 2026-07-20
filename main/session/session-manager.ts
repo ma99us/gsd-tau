@@ -98,6 +98,36 @@ export class SessionManager {
   }
 
   /**
+   * Send a prompt to an active session's pi process.
+   *
+   * Routes the message from the renderer-initiated IPC call to the underlying
+   * {@link RpcClient}. Fire-and-forget on the client side; callers receive
+   * streamed events via the session handle's event emitter.
+   *
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async prompt(id: SessionId, message: string): Promise<void> {
+    const entry = this._sessions.get(id)
+    if (!entry) {
+      throw new Error(`SessionManager.prompt(): unknown session '${id}'`)
+    }
+    await entry.client.prompt(message)
+  }
+
+  /**
+   * Abort the current pi operation for an active session.
+   *
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async abort(id: SessionId): Promise<void> {
+    const entry = this._sessions.get(id)
+    if (!entry) {
+      throw new Error(`SessionManager.abort(): unknown session '${id}'`)
+    }
+    await entry.client.abort()
+  }
+
+  /**
    * Close an active session by its stable ID.
    *
    * Sequence:
