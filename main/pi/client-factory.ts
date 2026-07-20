@@ -51,7 +51,10 @@ export interface CreateClientOptions {
  * @throws {ClientInitError}  When `init()` rejects or returns an incompatible protocol version.
  */
 export async function createClient(opts: CreateClientOptions): Promise<RpcClient> {
-  const cliPath = opts.binary ?? resolvePiBinary()
+  // Test override: GSD_TAU_MOCK_PI env var bypasses resolvePiBinary() so
+  // Playwright tests can inject a mock pi server without a real gsd binary.
+  const envMockPath = process.env.GSD_TAU_MOCK_PI
+  const cliPath = opts.binary ?? envMockPath ?? resolvePiBinary()
 
   const client = new RpcClient({ cliPath, cwd: opts.cwd })
 
