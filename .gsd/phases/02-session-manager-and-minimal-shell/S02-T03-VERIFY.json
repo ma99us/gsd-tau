@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T03",
+  "unitId": "M002/S02/T03",
+  "timestamp": 1784556448011,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm test -- client-factory passes. Manual: node -e script opens a client against a real gsd install and prints protocolVersion.",
+      "exitCode": 0,
+      "durationMs": 6027,
+      "verdict": "pass"
+    }
+  ]
+}

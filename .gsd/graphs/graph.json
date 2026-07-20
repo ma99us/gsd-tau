@@ -1,0 +1,21 @@
+{
+  "nodes": [
+    {
+      "id": "milestone:M002",
+      "label": "M002: Session Manager and Minimal Shell",
+      "type": "milestone",
+      "description": "Active milestone: M002",
+      "confidence": "EXTRACTED",
+      "sourceFile": "STATE.md"
+    },
+    {
+      "id": "concept:phase:evaluating-gates",
+      "label": "Phase: evaluating-gates",
+      "type": "concept",
+      "confidence": "EXTRACTED",
+      "sourceFile": "STATE.md"
+    }
+  ],
+  "edges": [],
+  "builtAt": "2026-07-20T13:59:54.222Z"
+}

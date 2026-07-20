@@ -13,7 +13,7 @@
 
 ## Slices
 
-- [ ] **S01: Project Scaffold and Tooling** `risk:low` `depends:[]`
+- [x] **S01: Project Scaffold and Tooling** `risk:low` `depends:[]`
   > After this: pnpm dev opens an empty Electron window. pnpm test passes. pnpm lint passes.
 
 - [ ] **S02: pi Client and Event Pump** `risk:high` `depends:[S01]`

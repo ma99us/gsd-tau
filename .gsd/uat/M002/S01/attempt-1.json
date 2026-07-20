@@ -1,0 +1,156 @@
+{
+  "runId": "uat:M002:S01:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M002",
+  "sliceId": "S01",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-20T14:01:05.383Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "UAT-01",
+      "description": "Build pipeline compiles without errors — pnpm build exits 0 with out/main/index.js, out/preload/preload.js, out/renderer/index.html emitted",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "f2dc0002-2bc6-4dea-a2bc-f49bf976c137",
+          "note": "electron-vite exits 0; renderer index.html and assets built in 1.52s"
+        },
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "866617f8-034d-40ca-860f-1757283c8617",
+          "note": "All 3 output artifacts confirmed present on disk"
+        }
+      ],
+      "notes": "pnpm build exited 0. out/main/index.js, out/preload/preload.js, out/renderer/index.html all confirmed present."
+    },
+    {
+      "id": "UAT-02",
+      "description": "Lint passes with zero warnings — pnpm lint exits 0 with no output",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "2c218a63-c43c-4473-9ac6-b3b88d3ab468",
+          "note": "pnpm lint exited 0 with empty output string"
+        }
+      ],
+      "notes": "pnpm lint exited 0. Output was empty string — zero errors, zero warnings."
+    },
+    {
+      "id": "UAT-03",
+      "description": "resolvePiBinary() PATH resolution — PATH hit test case passes",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "559e0a09-75a9-4243-9e88-9bc0c25fabfc",
+          "note": "vitest: 4 passed (4) in 1.40s"
+        }
+      ],
+      "notes": "pnpm test: 1 test file, 4 tests passed. All resolve-pi cases including PATH hit, env var override, and not-found error verified by the Vitest suite."
+    },
+    {
+      "id": "UAT-04",
+      "description": "resolvePiBinary() GSD_PI_PATH override — env var override test case passes",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "559e0a09-75a9-4243-9e88-9bc0c25fabfc",
+          "note": "4/4 vitest cases green including env var override"
+        }
+      ],
+      "notes": "Covered by the same vitest run — 4 resolve-pi cases all passed."
+    },
+    {
+      "id": "UAT-05",
+      "description": "resolvePiBinary() not-found error — ResolvePiError thrown with actionable message",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "559e0a09-75a9-4243-9e88-9bc0c25fabfc",
+          "note": "4/4 vitest cases green including not-found error case"
+        }
+      ],
+      "notes": "Covered by the same vitest run — all 4 cases including not-found error passed."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All automatable checks passed: pnpm build exits 0 with all 3 output artifacts present, pnpm lint exits 0 with zero warnings, pnpm test exits 0 with 4/4 resolve-pi cases green."
+}

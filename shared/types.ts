@@ -30,3 +30,22 @@ export type WindowId = number
 
 /** Stable identifier for a tab within a renderer window. */
 export type TabId = string
+
+/**
+ * Negotiated capabilities returned by the pi init handshake.
+ * Plain type — no SDK imports, safe to use in both main and renderer.
+ */
+export interface PiCapabilities {
+  events: string[]
+  commands: string[]
+}
+
+/**
+ * Stored after a successful pi init handshake.
+ * Used by SessionHandle and IPC state forwarding.
+ */
+export interface PiInitInfo {
+  protocolVersion: 2
+  sessionId: string
+  capabilities: PiCapabilities
+}
