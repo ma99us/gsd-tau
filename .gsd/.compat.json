@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-20T18:08:12.024Z",
+  "lastProjectedAt": "2026-07-20T18:15:32.774Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -64,7 +64,7 @@
       ]
     },
     "phases/03-ui-request-bridge/03-01-PLAN.md": {
-      "sha": "a5cb5851e290850b",
+      "sha": "1b52fb66630ea94a",
       "entities": [
         "M003",
         "M003/S01"
@@ -138,6 +138,236 @@
       "entities": [
         "M002",
         "M002/S06"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-01-ASSESSMENT.md": {
+      "sha": "82cf3e9bd281ab58",
+      "entities": [
+        "M002",
+        "M002/S01"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-01-SUMMARY.md": {
+      "sha": "f42f2ff4e0f3194c",
+      "entities": [
+        "M002",
+        "M002/S01"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-01-UAT.md": {
+      "sha": "ee7b54bff9da8b61",
+      "entities": [
+        "M002",
+        "M002/S01"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S01-T01-SUMMARY.md": {
+      "sha": "fd05782b34aef1a7",
+      "entities": [
+        "M002",
+        "M002/S01",
+        "M002/S01/T01"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S01-T02-SUMMARY.md": {
+      "sha": "88258aace2a975b1",
+      "entities": [
+        "M002",
+        "M002/S01",
+        "M002/S01/T02"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-02-ASSESSMENT.md": {
+      "sha": "9c9dd25665238779",
+      "entities": [
+        "M002",
+        "M002/S02"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-02-SUMMARY.md": {
+      "sha": "5589f3fcfc0fe649",
+      "entities": [
+        "M002",
+        "M002/S02"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-02-UAT.md": {
+      "sha": "c54c2e32a28b97c9",
+      "entities": [
+        "M002",
+        "M002/S02"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S02-T03-SUMMARY.md": {
+      "sha": "78350d655eca5744",
+      "entities": [
+        "M002",
+        "M002/S02",
+        "M002/S02/T03"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S02-T04-SUMMARY.md": {
+      "sha": "86fe0bab1f329b12",
+      "entities": [
+        "M002",
+        "M002/S02",
+        "M002/S02/T04"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-03-ASSESSMENT.md": {
+      "sha": "569414735e0a9fdf",
+      "entities": [
+        "M002",
+        "M002/S03"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-03-SUMMARY.md": {
+      "sha": "848b37a0b7774bda",
+      "entities": [
+        "M002",
+        "M002/S03"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-03-UAT.md": {
+      "sha": "b99460d48b7239ea",
+      "entities": [
+        "M002",
+        "M002/S03"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S03-T05-SUMMARY.md": {
+      "sha": "3b58fa4caeb2f33b",
+      "entities": [
+        "M002",
+        "M002/S03",
+        "M002/S03/T05"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S03-T06-SUMMARY.md": {
+      "sha": "f1c6388fa7fb46f0",
+      "entities": [
+        "M002",
+        "M002/S03",
+        "M002/S03/T06"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-04-ASSESSMENT.md": {
+      "sha": "f6bb7cd76ae45e35",
+      "entities": [
+        "M002",
+        "M002/S04"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-04-SUMMARY.md": {
+      "sha": "70154d8cc4c22a49",
+      "entities": [
+        "M002",
+        "M002/S04"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-04-UAT.md": {
+      "sha": "f8edc125883a9f4a",
+      "entities": [
+        "M002",
+        "M002/S04"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S04-T07-SUMMARY.md": {
+      "sha": "d488480493733d72",
+      "entities": [
+        "M002",
+        "M002/S04",
+        "M002/S04/T07"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S04-T08-SUMMARY.md": {
+      "sha": "61120a49faa39357",
+      "entities": [
+        "M002",
+        "M002/S04",
+        "M002/S04/T08"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-05-ASSESSMENT.md": {
+      "sha": "792697202382fdb4",
+      "entities": [
+        "M002",
+        "M002/S05"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-05-SUMMARY.md": {
+      "sha": "03bf6cf7ca9eaee2",
+      "entities": [
+        "M002",
+        "M002/S05"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-05-UAT.md": {
+      "sha": "b5b02c3d2b7791c3",
+      "entities": [
+        "M002",
+        "M002/S05"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S05-T09-SUMMARY.md": {
+      "sha": "eaa34b3d23f6d5cb",
+      "entities": [
+        "M002",
+        "M002/S05",
+        "M002/S05/T09"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S05-T10-SUMMARY.md": {
+      "sha": "46bc0ac0a26d437b",
+      "entities": [
+        "M002",
+        "M002/S05",
+        "M002/S05/T10"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-06-ASSESSMENT.md": {
+      "sha": "b5ac69ca061b4b12",
+      "entities": [
+        "M002",
+        "M002/S06"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-06-SUMMARY.md": {
+      "sha": "ba321c6bd0b1b335",
+      "entities": [
+        "M002",
+        "M002/S06"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/02-06-UAT.md": {
+      "sha": "4674f90d59d39f02",
+      "entities": [
+        "M002",
+        "M002/S06"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S06-T11-SUMMARY.md": {
+      "sha": "e3d03da020a3a0ce",
+      "entities": [
+        "M002",
+        "M002/S06",
+        "M002/S06/T11"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S06-T12-SUMMARY.md": {
+      "sha": "e33300da7feb24f4",
+      "entities": [
+        "M002",
+        "M002/S06",
+        "M002/S06/T12"
+      ]
+    },
+    "phases/02-session-manager-and-minimal-shell/S06-T13-SUMMARY.md": {
+      "sha": "00f07719712f915d",
+      "entities": [
+        "M002",
+        "M002/S06",
+        "M002/S06/T13"
       ]
     }
   },

@@ -3,6 +3,14 @@
  * Must not import from electron, Node.js APIs, or browser-only APIs.
  */
 
+// `import type` is fully erased at compile/bundle time — zero runtime footprint
+// in the renderer bundle.  Bundlers (Vite, esbuild) strip type-only imports before
+// emitting JS, so @opengsd/contracts never ships to the browser context.
+import type { RpcExtensionUIRequest, RpcExtensionUIResponse } from '@opengsd/contracts'
+
+// Re-export so callers import from @shared/types, not directly from the package.
+export type { RpcExtensionUIRequest, RpcExtensionUIResponse }
+
 export type SessionId = string
 
 /**
@@ -60,6 +68,25 @@ export interface GsdProgress {
   taskId: string | null
   phase: 'planning' | 'executing' | 'validating' | null
 }
+
+/**
+ * Serialisable snapshot of all open UI-request blockers for a session.
+ * Keyed by request id; values are the full request payloads received from pi.
+ * Passed over IPC as a plain object, so `Record` (not `Map`) is intentional.
+ */
+export type UiRequestState = Record<string, RpcExtensionUIRequest>
+
+/**
+ * The valid response shapes we send back to pi via `client.sendUIResponse()`.
+ * Mirrors the `RpcExtensionUIResponse` union but is defined here so that
+ * renderer code can construct responses without importing the contracts package
+ * at runtime.
+ */
+export type UiResponseInput =
+  | { value: string }       // select (single), input, editor, and informational ack
+  | { values: string[] }    // select (multiple)
+  | { confirmed: boolean }  // confirm
+  | { cancelled: true }     // user-close or app-shutdown cancellation
 
 /** Stable identifier for a renderer BrowserWindow. */
 export type WindowId = number

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T01",
+  "unitId": "M003/S01/T01",
+  "timestamp": 1784571337275,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm tsc --noEmit passes with no errors in renderer tsconfig.",
+      "exitCode": 2,
+      "durationMs": 1897,
+      "verdict": "fail"
+    }
+  ]
+}
