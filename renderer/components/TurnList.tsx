@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Turn, AssistantItem } from '../hooks/useSession'
+import { ToolCard } from './ToolCard'
 
 interface TurnListProps {
   turns: Turn[]
@@ -94,32 +95,5 @@ function AssistantItemView({ item }: { item: AssistantItem }): JSX.Element {
     )
   }
 
-  // Tool card — basic version.  T10 will replace this with the full ToolCard
-  // component that includes expand/collapse and result display.
-  const inputSummary = (() => {
-    try {
-      return JSON.stringify(item.input).slice(0, 80)
-    } catch {
-      return String(item.input).slice(0, 80)
-    }
-  })()
-
-  return (
-    <div
-      data-tool-use-id={item.toolUseId}
-      className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs"
-    >
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-blue-400">{item.name}</span>
-        {item.pending ? (
-          <span className="animate-pulse text-neutral-500">running…</span>
-        ) : (
-          <span className="text-green-500">✓</span>
-        )}
-      </div>
-      {inputSummary && (
-        <div className="mt-1 truncate font-mono text-neutral-500">{inputSummary}</div>
-      )}
-    </div>
-  )
+  return <ToolCard item={item} />
 }
