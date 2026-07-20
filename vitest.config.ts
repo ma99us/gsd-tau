@@ -10,6 +10,7 @@ export default defineConfig({
       'shared/**/*.test.ts',
       'preload/**/*.test.ts',
       'renderer/hooks/**/*.test.ts',
+      'renderer/components/**/*.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/out/**', '**/dist/**'],
     passWithNoTests: true,

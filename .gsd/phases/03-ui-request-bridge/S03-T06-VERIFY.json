@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T06",
+  "unitId": "M003/S03/T06",
+  "timestamp": 1784574226868,
+  "passed": false,
+  "discoverySource": "package-json",
+  "checks": [
+    {
+      "command": "npm run lint",
+      "exitCode": 1,
+      "durationMs": 2528,
+      "verdict": "fail"
+    },
+    {
+      "command": "npm run test",
+      "exitCode": 1,
+      "durationMs": 3018,
+      "verdict": "fail"
+    }
+  ]
+}
