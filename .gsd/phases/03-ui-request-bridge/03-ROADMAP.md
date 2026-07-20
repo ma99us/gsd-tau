@@ -18,7 +18,7 @@
 - [x] **S02: IPC Handler and Windows Notifications** `risk:medium` `depends:[S01]`
   > After this: Windows toast appears when a blocker is injected; respondUI IPC call clears it.
 
-- [ ] **S03: Modal Components** `risk:low` `depends:[S02]`
+- [x] **S03: Modal Components** `risk:low` `depends:[S02]`
   > After this: All four modal types render and respond using a mock pi that emits each request type.
 
 - [ ] **S04: Non-modal Renderers and Modal Queue** `risk:low` `depends:[S03]`

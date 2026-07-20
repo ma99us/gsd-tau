@@ -1,0 +1,224 @@
+{
+  "runId": "uat:M003:S03:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M003",
+  "sliceId": "S03",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-20T19:12:14.427Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "SMOKE-01",
+      "description": "Run npx vitest run renderer/components/modals — must exit 0 with 4 files, 58 tests passed",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "4 test files passed, 58 tests passed, exit 0, duration 568ms"
+    },
+    {
+      "id": "TC-01",
+      "description": "SelectModal single-select response: buildSelectResponse returns { value: 'B' }",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by SelectModal.test.ts passing in suite"
+    },
+    {
+      "id": "TC-02",
+      "description": "SelectModal multi-select response: buildSelectResponse returns { values: ['A','C'] }",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by SelectModal.test.ts passing in suite"
+    },
+    {
+      "id": "TC-03",
+      "description": "SelectModal empty selection: buildSelectResponse returns null",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by SelectModal.test.ts passing in suite"
+    },
+    {
+      "id": "TC-04",
+      "description": "toggleOption multi-select toggle: deselect and add behaviors",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by SelectModal.test.ts passing in suite"
+    },
+    {
+      "id": "TC-05",
+      "description": "ConfirmModal responses: Yes/No/Cancel are distinct shapes",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by ConfirmModal.test.ts passing in suite"
+    },
+    {
+      "id": "TC-06",
+      "description": "InputModal secure masking: type=password when secure:true",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by InputModal.test.ts passing in suite"
+    },
+    {
+      "id": "TC-07",
+      "description": "EditorModal Ctrl+Enter detection: isEditorSubmitCombo returns correct booleans",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by EditorModal.test.ts passing in suite"
+    },
+    {
+      "id": "EDGE-01",
+      "description": "Empty editor content rejected (submit disabled)",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by EditorModal.test.ts passing in suite"
+    },
+    {
+      "id": "EDGE-02",
+      "description": "Editor newline-only content accepted",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by EditorModal.test.ts passing in suite"
+    },
+    {
+      "id": "EDGE-03",
+      "description": "SelectModal cancel: returns { cancelled: true }",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8446b06-ecfc-42ca-8d9b-6b0e2b70cc06"
+        }
+      ],
+      "notes": "Covered by SelectModal.test.ts passing in suite"
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 58 unit tests across 4 modal component files passed with exit code 0."
+}

@@ -1,8 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TurnList } from './components/TurnList'
 import { Composer } from './components/Composer'
 import { useSession } from './hooks/useSession'
-import type { SessionState } from '../shared/types'
+import {
+  StatusBar,
+  applySetStatus,
+  applySetWidget,
+  applySetTitle,
+  emptyStatusBarState,
+} from './components/StatusBar'
+import {
+  InlineToast,
+  buildToastEntry,
+  addToastCapped,
+  TOAST_TTL_MS,
+} from './components/InlineToast'
+import type { StatusBarState } from './components/StatusBar'
+import type { ToastEntry } from './components/InlineToast'
+import type { SessionState, RpcExtensionUIRequest } from '../shared/types'
 
 // ── Recent sessions persistence ───────────────────────────────────────────────
 
@@ -36,11 +51,20 @@ function projectName(cwd: string): string {
 // ── App ───────────────────────────────────────────────────────────────────────
 
 function App(): JSX.Element {
-  const { isOpen, cwd, sessionState, turns, openProject, send, abort } = useSession()
+  const { isOpen, cwd, sessionId, sessionState, turns, openProject, send, abort } = useSession()
 
   const [opening, setOpening] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
   const [recents, setRecents] = useState<RecentEntry[]>(loadRecents)
+
+  // ── Non-modal UI-request state ─────────────────────────────────────────────
+  const [statusBarState, setStatusBarState] = useState<StatusBarState>(emptyStatusBarState)
+  const [toasts, setToasts] = useState<ToastEntry[]>([])
+  /**
+   * Buffered set_editor_text value — T09's EditorModal reads this ref on open
+   * and clears it after consuming the prefill value.
+   */
+  const editorPrefillRef = useRef<string | null>(null)
 
   // Keep recents in sync when the app regains focus (other windows may have updated).
   useEffect(() => {
@@ -48,6 +72,75 @@ function App(): JSX.Element {
     window.addEventListener('focus', sync)
     return () => window.removeEventListener('focus', sync)
   }, [])
+
+  // ── Non-modal UI-request subscription ─────────────────────────────────────
+  useEffect(() => {
+    if (!sessionId) return
+
+    // Reset non-modal display state for the incoming session.
+    setStatusBarState(emptyStatusBarState)
+    setToasts([])
+    editorPrefillRef.current = null
+
+    const handleRequest = (request: RpcExtensionUIRequest): void => {
+      switch (request.method) {
+        case 'notify': {
+          const entry = buildToastEntry(request)
+          setToasts(prev => addToastCapped(prev, entry))
+          // Schedule auto-dismiss. capturedId is stable in this closure — safe
+          // even if React batches the corresponding setToasts update.
+          const capturedId = request.id
+          setTimeout(() => {
+            setToasts(prev => prev.filter(t => t.id !== capturedId))
+          }, TOAST_TTL_MS)
+          // Auto-respond — notify is informational, no user action required.
+          void window.gsd.respondUI(sessionId, request.id, { value: '' })
+          break
+        }
+
+        case 'setStatus': {
+          setStatusBarState(prev => applySetStatus(prev, request))
+          void window.gsd.respondUI(sessionId, request.id, { value: '' })
+          break
+        }
+
+        case 'setWidget': {
+          setStatusBarState(prev => applySetWidget(prev, request))
+          void window.gsd.respondUI(sessionId, request.id, { value: '' })
+          break
+        }
+
+        case 'setTitle': {
+          setStatusBarState(prev => applySetTitle(prev, request))
+          void window.gsd.respondUI(sessionId, request.id, { value: '' })
+          break
+        }
+
+        case 'set_editor_text': {
+          // Buffer the latest prefill text for T09's EditorModal.
+          // If an EditorModal is already open, T09 will apply this immediately;
+          // otherwise it is consumed when the next editor blocker arrives.
+          editorPrefillRef.current = request.text
+          void window.gsd.respondUI(sessionId, request.id, { value: '' })
+          break
+        }
+
+        // Blocking methods (select, confirm, input, editor) are handled by
+        // T09's modal queue — not processed here.
+        default:
+          break
+      }
+    }
+
+    const unsub = window.gsd.onUiRequestAdded(sessionId, handleRequest)
+    return () => {
+      unsub()
+    }
+  }, [sessionId])
+
+  const dismissToast = (id: string): void => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
 
   const doOpen = async (path: string): Promise<void> => {
     setOpening(true)
@@ -184,11 +277,17 @@ function App(): JSX.Element {
         </div>
       )}
 
+      {/* Status bar — non-modal setStatus / setWidget / setTitle rendering */}
+      <StatusBar {...statusBarState} />
+
       {/* Chat area fills remaining space */}
       <TurnList turns={turns} />
 
       {/* Composer pinned to bottom */}
       <Composer onSend={text => void send(text)} disabled={isWorking || isStopped} />
+
+      {/* Inline toasts — fixed position, overlaid above composer */}
+      <InlineToast toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }
