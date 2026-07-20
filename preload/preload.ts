@@ -6,6 +6,8 @@ import type {
   SessionEvent,
   GsdApi,
   Unsubscribe,
+  RpcExtensionUIRequest,
+  UiResponseInput,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -17,11 +19,14 @@ const IPC = {
   PROMPT: 'prompt',
   ABORT: 'abort',
   GET_STATE: 'getState',
+  RESPOND_UI: 'respondUI',
 } as const
 
 const PUSH = {
   SESSION_EVENT: 'session:event',
   SESSION_STATE_CHANGE: 'session:state-change',
+  SESSION_UI_REQUEST_ADDED: 'session:ui-request-added',
+  SESSION_UI_REQUEST_REMOVED: 'session:ui-request-removed',
 } as const
 
 // ── GSD API factory ────────────────────────────────────────────────────────────
@@ -55,6 +60,13 @@ export function createGsdApi(): GsdApi {
 
     getState: (sessionId: SessionId): Promise<SessionState> =>
       ipcRenderer.invoke(IPC.GET_STATE, sessionId),
+
+    respondUI: (
+      sessionId: SessionId,
+      requestId: string,
+      response: UiResponseInput,
+    ): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.RESPOND_UI, sessionId, requestId, response),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 
@@ -106,6 +118,54 @@ export function createGsdApi(): GsdApi {
       ipcRenderer.on(PUSH.SESSION_STATE_CHANGE, listener)
       return (): void => {
         ipcRenderer.off(PUSH.SESSION_STATE_CHANGE, listener)
+      }
+    },
+
+    /**
+     * Subscribe to `session:ui-request-added` pushes for one session.
+     * Fires whenever a new interactive UI-request blocker arrives.
+     *
+     * @returns An unsubscribe function.
+     */
+    onUiRequestAdded: (
+      sessionId: SessionId,
+      cb: (request: RpcExtensionUIRequest) => void,
+    ): Unsubscribe => {
+      const listener = (
+        _ev: IpcRendererEvent,
+        payload: { sessionId: SessionId; request: RpcExtensionUIRequest },
+      ): void => {
+        if (payload.sessionId === sessionId) {
+          cb(payload.request)
+        }
+      }
+      ipcRenderer.on(PUSH.SESSION_UI_REQUEST_ADDED, listener)
+      return (): void => {
+        ipcRenderer.off(PUSH.SESSION_UI_REQUEST_ADDED, listener)
+      }
+    },
+
+    /**
+     * Subscribe to `session:ui-request-removed` pushes for one session.
+     * Fires after a blocker has been cleared via respondUI or cancellation.
+     *
+     * @returns An unsubscribe function.
+     */
+    onUiRequestRemoved: (
+      sessionId: SessionId,
+      cb: (requestId: string) => void,
+    ): Unsubscribe => {
+      const listener = (
+        _ev: IpcRendererEvent,
+        payload: { sessionId: SessionId; requestId: string },
+      ): void => {
+        if (payload.sessionId === sessionId) {
+          cb(payload.requestId)
+        }
+      }
+      ipcRenderer.on(PUSH.SESSION_UI_REQUEST_REMOVED, listener)
+      return (): void => {
+        ipcRenderer.off(PUSH.SESSION_UI_REQUEST_REMOVED, listener)
       }
     },
   }

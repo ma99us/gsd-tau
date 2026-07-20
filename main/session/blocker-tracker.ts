@@ -76,6 +76,14 @@ class BlockerTracker extends EventEmitter {
   }
 
   /**
+   * Look up a specific blocker by its request id.
+   * Returns `undefined` when the id is not tracked.
+   */
+  get(requestId: string): RpcExtensionUIRequest | undefined {
+    return this._blockers.get(requestId)
+  }
+
+  /**
    * Snapshot of all currently open blockers as a plain JSON-serialisable
    * `Record`.  Suitable for passing over the Electron IPC boundary.
    */

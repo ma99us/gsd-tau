@@ -12,7 +12,7 @@
 
 ## Slices
 
-- [ ] **S01: Contract Types and BlockerTracker** `risk:medium` `depends:[]`
+- [x] **S01: Contract Types and BlockerTracker** `risk:medium` `depends:[]`
   > After this: Session state shows Waiting on you in DevTools when a blocker is injected via mock.
 
 - [ ] **S02: IPC Handler and Windows Notifications** `risk:medium` `depends:[S01]`

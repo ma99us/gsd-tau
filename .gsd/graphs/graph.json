@@ -1,21 +1,21 @@
 {
   "nodes": [
     {
-      "id": "milestone:M002",
-      "label": "M002: Session Manager and Minimal Shell",
+      "id": "milestone:M003",
+      "label": "M003: UI-request Bridge",
       "type": "milestone",
-      "description": "Active milestone: M002",
+      "description": "Active milestone: M003",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     },
     {
-      "id": "concept:phase:validating-milestone",
-      "label": "Phase: validating-milestone",
+      "id": "concept:phase:evaluating-gates",
+      "label": "Phase: evaluating-gates",
       "type": "concept",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     }
   ],
   "edges": [],
-  "builtAt": "2026-07-20T16:23:26.824Z"
+  "builtAt": "2026-07-20T18:26:09.658Z"
 }

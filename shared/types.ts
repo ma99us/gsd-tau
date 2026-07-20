@@ -14,12 +14,12 @@ export type { RpcExtensionUIRequest, RpcExtensionUIResponse }
 export type SessionId = string
 
 /**
- * Phase-1 machine state returned by getState() and pushed via
- * the session:state-change push channel.  Matches the 3-state machine
+ * Session state returned by getState() and pushed via the
+ * session:state-change push channel.  Matches the 4-state machine
  * in main/session/state-machine.ts — kept here so the renderer never
  * needs to import from main/.
  */
-export type SessionState = 'Working' | 'Idle' | 'Stopped'
+export type SessionState = 'Working' | 'Idle' | 'Stopped' | 'Waiting'
 
 /** State of a pi session from the UI's perspective (extended in later phases). */
 export type SessionUiState = 'Working' | 'Waiting' | 'Idle' | 'Stopped' | 'Auto'
@@ -48,8 +48,21 @@ export interface GsdApi {
   prompt(sessionId: SessionId, text: string): Promise<void>
   abort(sessionId: SessionId): Promise<void>
   getState(sessionId: SessionId): Promise<SessionState>
+  respondUI(
+    sessionId: SessionId,
+    requestId: string,
+    response: UiResponseInput,
+  ): Promise<{ ok: boolean; error?: string }>
   onEvent(sessionId: SessionId, cb: (event: SessionEvent) => void): Unsubscribe
   onStateChange(sessionId: SessionId, cb: (state: SessionState) => void): Unsubscribe
+  onUiRequestAdded(
+    sessionId: SessionId,
+    cb: (request: RpcExtensionUIRequest) => void,
+  ): Unsubscribe
+  onUiRequestRemoved(
+    sessionId: SessionId,
+    cb: (requestId: string) => void,
+  ): Unsubscribe
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */

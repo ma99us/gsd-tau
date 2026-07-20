@@ -1,7 +1,8 @@
 import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } from 'electron'
 import type { WebContents } from 'electron'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId } from '../../shared/types'
+import type { SessionId, RpcExtensionUIRequest, UiResponseInput } from '../../shared/types'
+import { BlockerTracker } from '../session/blocker-tracker'
 import { SessionStateMachine } from '../session/state-machine'
 import type {
   SessionState,
@@ -19,12 +20,15 @@ export const IPC = {
   PROMPT: 'prompt',
   ABORT: 'abort',
   GET_STATE: 'getState',
+  RESPOND_UI: 'respondUI',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
 export const PUSH = {
   SESSION_EVENT: 'session:event',
   SESSION_STATE_CHANGE: 'session:state-change',
+  SESSION_UI_REQUEST_ADDED: 'session:ui-request-added',
+  SESSION_UI_REQUEST_REMOVED: 'session:ui-request-removed',
 } as const
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -41,6 +45,9 @@ export type GetAllWebContents = () => WebContents[]
 /** Bookkeeping held per open session inside the handler registry. */
 interface SessionEntry {
   machine: SessionStateMachine
+  tracker: BlockerTracker
+  /** Forward a UI response to pi for the given request id. */
+  sendUIResponse: (id: string, response: UiResponseInput) => void
   /** Tears down the handle listeners and destroys the state machine. */
   cleanup: () => void
 }
@@ -59,23 +66,108 @@ function fanOut(getAllWc: GetAllWebContents, channel: string, payload: unknown):
   }
 }
 
+// ── validateUiResponse ─────────────────────────────────────────────────────────
+
+/**
+ * Validate that a renderer-supplied response matches the shape required by
+ * the given UI-request method.
+ *
+ * Rules:
+ * - `cancelled: true` is universally valid for any method.
+ * - `confirm` → `{ confirmed: boolean }`
+ * - `select` (single) → `{ value: string }`
+ * - `select` (allowMultiple) → `{ values: string[] }`
+ * - `input` / `editor` → `{ value: string }`
+ * - All other methods (informational) → any object is accepted.
+ *
+ * Never throws; always returns `{ ok: true | false }`.
+ */
+export function validateUiResponse(
+  request: RpcExtensionUIRequest,
+  response: unknown,
+): { ok: true; validated: UiResponseInput } | { ok: false; error: string } {
+  if (response === null || typeof response !== 'object') {
+    return {
+      ok: false,
+      error: `response must be an object, got ${response === null ? 'null' : typeof response}`,
+    }
+  }
+
+  const r = response as Record<string, unknown>
+
+  // cancelled: true is universally valid regardless of method
+  if (r.cancelled === true) {
+    return { ok: true, validated: { cancelled: true } }
+  }
+
+  switch (request.method) {
+    case 'confirm': {
+      if (typeof r.confirmed !== 'boolean') {
+        return { ok: false, error: `confirm: response must have confirmed: boolean` }
+      }
+      return { ok: true, validated: { confirmed: r.confirmed } }
+    }
+
+    case 'select': {
+      if (request.allowMultiple) {
+        if (
+          !Array.isArray(r.values) ||
+          !(r.values as unknown[]).every((v) => typeof v === 'string')
+        ) {
+          return {
+            ok: false,
+            error: `select (allowMultiple=true): response must have values: string[]`,
+          }
+        }
+        return { ok: true, validated: { values: r.values as string[] } }
+      }
+      if (typeof r.value !== 'string') {
+        return { ok: false, error: `select: response must have value: string` }
+      }
+      return { ok: true, validated: { value: r.value } }
+    }
+
+    case 'input':
+    case 'editor': {
+      if (typeof r.value !== 'string') {
+        return { ok: false, error: `${request.method}: response must have value: string` }
+      }
+      return { ok: true, validated: { value: r.value } }
+    }
+
+    default: {
+      // Informational methods (notify, setStatus, setWidget, setTitle,
+      // set_editor_text) or unknown future methods — any ack is accepted.
+      return {
+        ok: true,
+        validated: { value: typeof r.value === 'string' ? r.value : '' },
+      }
+    }
+  }
+}
+
 // ── registerHandlers ───────────────────────────────────────────────────────────
 
 /**
  * Register all IPC handlers for the session bridge.
  *
- * Wires up four `ipcMain.handle` endpoints:
- * - `openProject(cwd)`           → `SessionId`
- * - `prompt(sessionId, text)`    → `void`
- * - `abort(sessionId)`           → `void`
- * - `getState(sessionId)`        → `SessionState`
+ * Wires up six `ipcMain.handle` endpoints:
+ * - `showFolderPicker()`              → `string | null`
+ * - `openProject(cwd)`                → `SessionId`
+ * - `prompt(sessionId, text)`         → `void`
+ * - `abort(sessionId)`                → `void`
+ * - `getState(sessionId)`             → `SessionState`
+ * - `respondUI(sessionId, id, resp)`  → `{ ok: boolean; error?: string }`
  *
  * Per-session side effects performed inside `openProject`:
- * 1. A new {@link SessionStateMachine} is created.
- * 2. The handle's `event` channel is subscribed to feed the machine and
- *    fan out `session:event` to all webContents.
- * 3. The handle's `transport-error` channel is subscribed similarly.
- * 4. The machine's `state-changed` emission fans out `session:state-change`.
+ * 1. A new {@link SessionStateMachine} and {@link BlockerTracker} are created.
+ * 2. The handle's `event` channel drives the machine and fans out
+ *    `session:event` to all webContents.
+ * 3. Interactive `extension_ui_request` events are tracked in the tracker;
+ *    informational ones are auto-acked immediately with `{ value: '' }`.
+ * 4. The tracker's `ui-request-added/removed` events drive the Waiting state
+ *    and fan out `session:ui-request-added/removed`.
+ * 5. The machine's `state-changed` emission fans out `session:state-change`.
  *
  * @param manager          The live {@link SessionManager} that owns pi sessions.
  * @param getAllWebContents Injected source of active webContents (injectable for tests).
@@ -110,6 +202,29 @@ export function registerHandlers(
       const id = handle.sessionId
 
       const machine = new SessionStateMachine()
+      const tracker = new BlockerTracker()
+
+      // ── Wire tracker → state machine (inline) ────────────────────────────────
+      // Inline rather than via handle.wireBlockerTracker so the handler owns the
+      // wiring and tests never need to mock wireBlockerTracker on SessionHandle.
+      const onBlockerAdded = (): void => {
+        machine.blockerAdded()
+      }
+      const onBlockerRemoved = (): void => {
+        machine.blockerRemoved(tracker.size)
+      }
+      tracker.on('ui-request-added', onBlockerAdded)
+      tracker.on('ui-request-removed', onBlockerRemoved)
+
+      // ── Wire tracker → IPC fan-out ────────────────────────────────────────────
+      const onBlockerAddedFanOut = (req: RpcExtensionUIRequest): void => {
+        fanOut(getAllWebContents, PUSH.SESSION_UI_REQUEST_ADDED, { sessionId: id, request: req })
+      }
+      const onBlockerRemovedFanOut = (requestId: string): void => {
+        fanOut(getAllWebContents, PUSH.SESSION_UI_REQUEST_REMOVED, { sessionId: id, requestId })
+      }
+      tracker.on('ui-request-added', onBlockerAddedFanOut)
+      tracker.on('ui-request-removed', onBlockerRemovedFanOut)
 
       // Event types that drive state transitions in the machine.
       // turn_start/turn_end are emitted by newer pi versions as aliases
@@ -122,9 +237,12 @@ export function registerHandlers(
         execution_complete: 'agent_end',
       }
 
+      // Interactive methods that require user input and must be tracked.
+      // Everything else is an informational method (setStatus, setWidget,
+      // notify, setTitle, set_editor_text) that is auto-acked so pi does not hang.
+      const INTERACTIVE_METHODS = new Set(['select', 'confirm', 'input', 'editor'])
+
       // ── handle 'event' ───────────────────────────────────────────────────────
-      // Fires for every non-error, non-transport-error event (including throttled
-      // text_delta). Used to keep the watchdog alive and to fan out to renderers.
       const onEvent = (ev: SdkAgentEvent): void => {
         // Reset the 30 s inactivity watchdog while the session is Working.
         machine.heartbeat()
@@ -134,19 +252,23 @@ export function registerHandlers(
           machine.feed(machineEvent)
         }
 
-        // extension_ui_request handling — Phase 1 partial bridge.
+        // extension_ui_request handling.
         //
-        // Non-interactive methods (setStatus, setWidget) are auto-acknowledged
-        // so pi stops retrying them every 30 s. Interactive methods (ask,
-        // confirm, prompt) are left pending — Phase 2 will show real dialogs.
+        // Interactive methods (select, confirm, input, editor) are added to the
+        // BlockerTracker, driving Waiting state and SESSION_UI_REQUEST_ADDED
+        // fan-out via the tracker listeners wired above.
+        //
+        // Informational methods are auto-acked immediately with { value: '' }
+        // so pi stops retrying them.
         if (ev.type === 'extension_ui_request') {
-          const req = ev as { type: string; id?: string; method?: string }
-          const NON_INTERACTIVE = new Set(['setStatus', 'setWidget', 'updateStatus', 'clearStatus'])
-          if (req.id && req.method && NON_INTERACTIVE.has(req.method)) {
-            console.debug(`[handlers] ack non-interactive extension_ui_request method=${req.method} id=${req.id}`)
-            handle.sendUIResponse(req.id, { confirmed: true })
+          const req = ev as { type: string; id: string; method: string } & SdkAgentEvent
+          if (INTERACTIVE_METHODS.has(req.method)) {
+            tracker.add(req as unknown as RpcExtensionUIRequest)
           } else {
-            console.info(`[handlers] unhandled extension_ui_request (phase 2):`, JSON.stringify(ev))
+            console.debug(
+              `[handlers] ack non-interactive extension_ui_request method=${req.method} id=${req.id}`,
+            )
+            handle.sendUIResponse(req.id, { value: '' })
           }
         }
         if (ev.type === 'extension_ui_snapshot') {
@@ -157,8 +279,6 @@ export function registerHandlers(
       }
 
       // ── handle 'transport-error' ─────────────────────────────────────────────
-      // Emitted by SessionHandle when the RPC stream throws and the handle is not
-      // already stopping.  Drives the machine to Stopped.
       const onTransportError = (payload: { error: unknown }): void => {
         machine.feed('transport-error')
         fanOut(getAllWebContents, PUSH.SESSION_EVENT, {
@@ -181,10 +301,16 @@ export function registerHandlers(
 
       sessions.set(id, {
         machine,
+        tracker,
+        sendUIResponse: (respId, resp) => handle.sendUIResponse(respId, resp),
         cleanup: () => {
           handle.off('event', onEvent)
           handle.off('transport-error', onTransportError)
           machine.off('state-changed', onStateChange)
+          tracker.off('ui-request-added', onBlockerAdded)
+          tracker.off('ui-request-removed', onBlockerRemoved)
+          tracker.off('ui-request-added', onBlockerAddedFanOut)
+          tracker.off('ui-request-removed', onBlockerRemovedFanOut)
           machine.destroy()
         },
       })
@@ -221,6 +347,48 @@ export function registerHandlers(
     },
   )
 
+  // ── respondUI ────────────────────────────────────────────────────────────────
+  //
+  // Validates the renderer-supplied response against the shape expected by the
+  // request method, sends it to pi via the handle, and removes the blocker from
+  // the tracker.  The SESSION_UI_REQUEST_REMOVED fan-out fires automatically
+  // via the tracker's 'ui-request-removed' listener wired in openProject.
+  //
+  // Never throws to the renderer — all failures return { ok: false, error }.
+  ipcMain.handle(
+    IPC.RESPOND_UI,
+    async (
+      _event,
+      sessionId: SessionId,
+      requestId: string,
+      response: unknown,
+    ): Promise<{ ok: boolean; error?: string }> => {
+      const entry = sessions.get(sessionId)
+      if (!entry) {
+        return { ok: false, error: `respondUI: unknown session '${sessionId}'` }
+      }
+
+      const request = entry.tracker.get(requestId)
+      if (!request) {
+        return {
+          ok: false,
+          error: `respondUI: unknown request '${requestId}' in session '${sessionId}'`,
+        }
+      }
+
+      const validation = validateUiResponse(request, response)
+      if (!validation.ok) {
+        return { ok: false, error: validation.error }
+      }
+
+      entry.sendUIResponse(requestId, validation.validated)
+      entry.tracker.remove(requestId)
+      // SESSION_UI_REQUEST_REMOVED is fanned out via the tracker listener above.
+
+      return { ok: true }
+    },
+  )
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   return function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -228,6 +396,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.PROMPT)
     ipcMain.removeHandler(IPC.ABORT)
     ipcMain.removeHandler(IPC.GET_STATE)
+    ipcMain.removeHandler(IPC.RESPOND_UI)
 
     for (const [, entry] of sessions) {
       entry.cleanup()
