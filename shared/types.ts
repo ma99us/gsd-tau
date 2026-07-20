@@ -5,8 +5,43 @@
 
 export type SessionId = string
 
-/** State of a pi session from the UI's perspective. */
+/**
+ * Phase-1 machine state returned by getState() and pushed via
+ * the session:state-change push channel.  Matches the 3-state machine
+ * in main/session/state-machine.ts — kept here so the renderer never
+ * needs to import from main/.
+ */
+export type SessionState = 'Working' | 'Idle' | 'Stopped'
+
+/** State of a pi session from the UI's perspective (extended in later phases). */
 export type SessionUiState = 'Working' | 'Waiting' | 'Idle' | 'Stopped' | 'Auto'
+
+/**
+ * A serialisable agent event from the pi RPC stream, received via IPC.
+ * The `type` discriminant matches pi event types (e.g. 'agent_start',
+ * 'text_delta').  No rpc-client imports — safe in both main and renderer.
+ */
+export interface SessionEvent {
+  type: string
+  [key: string]: unknown
+}
+
+/** Removes a previously registered IPC listener. */
+export type Unsubscribe = () => void
+
+/**
+ * The `window.gsd` API surface exposed by the preload script via
+ * contextBridge.  Renderer code imports only this interface; it must
+ * never import from main/ or preload/.
+ */
+export interface GsdApi {
+  openProject(cwd: string): Promise<SessionId>
+  prompt(sessionId: SessionId, text: string): Promise<void>
+  abort(sessionId: SessionId): Promise<void>
+  getState(sessionId: SessionId): Promise<SessionState>
+  onEvent(sessionId: SessionId, cb: (event: SessionEvent) => void): Unsubscribe
+  onStateChange(sessionId: SessionId, cb: (state: SessionState) => void): Unsubscribe
+}
 
 /** Lightweight summary passed over IPC and persisted in the registry. */
 export interface SessionSummary {
