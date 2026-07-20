@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T03",
+  "unitId": "M003/S06/T03",
+  "timestamp": 1784581048932,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "node -e \"const w=require('fs').readFileSync('.github/workflows/ci.yml','utf8'); if(!w.includes('test:e2e')) throw new Error('e2e job missing'); console.log('ok')\"",
+      "exitCode": 1,
+      "durationMs": 85,
+      "verdict": "fail"
+    }
+  ]
+}

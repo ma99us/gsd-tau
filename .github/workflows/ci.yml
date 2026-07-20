@@ -8,9 +8,8 @@ on:
 
 jobs:
   docs-only-guard:
-    # Phase 0: repo is design-only. This job passes trivially so branch
-    # protection can require "CI / docs-only-guard" now, and we replace it
-    # with real lint/test/build jobs once Phase 1 lands source code.
+    # Kept for branch-protection compatibility — requires "CI / docs-only-guard"
+    # to pass on every PR. Validates design docs are present.
     runs-on: windows-latest
     defaults:
       run:
@@ -56,51 +55,73 @@ jobs:
             exit 1
           }
 
-  # Placeholder jobs — enabled once Phase 1 introduces source code.
-  # All Windows jobs default to pwsh via job-level `defaults.run.shell`.
-  #
-  # lint:
-  #   runs-on: windows-latest
-  #   defaults:
-  #     run:
-  #       shell: pwsh
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 20
-  #         cache: pnpm
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm lint
-  #
-  # test:
-  #   runs-on: windows-latest
-  #   defaults:
-  #     run:
-  #       shell: pwsh
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 20
-  #         cache: pnpm
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm test
-  #
-  # build:
-  #   runs-on: windows-latest
-  #   needs: [lint, test]
-  #   defaults:
-  #     run:
-  #       shell: pwsh
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 20
-  #         cache: pnpm
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm build
+  lint:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  build:
+    runs-on: windows-latest
+    needs: [lint, test]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: electron-out
+          path: out/
+          retention-days: 1
+
+  e2e:
+    runs-on: windows-latest
+    needs: [build]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: electron-out
+          path: out/
+      - run: pnpm test:e2e
