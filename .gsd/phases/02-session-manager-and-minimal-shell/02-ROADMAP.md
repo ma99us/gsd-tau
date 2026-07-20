@@ -16,7 +16,7 @@
 - [x] **S01: Project Scaffold and Tooling** `risk:low` `depends:[]`
   > After this: pnpm dev opens an empty Electron window. pnpm test passes. pnpm lint passes.
 
-- [ ] **S02: pi Client and Event Pump** `risk:high` `depends:[S01]`
+- [x] **S02: pi Client and Event Pump** `risk:high` `depends:[S01]`
   > After this: Node script opens a client, sends a prompt, prints every event to stdout, closes cleanly.
 
 - [ ] **S03: Session State Machine and Manager** `risk:medium` `depends:[S02]`
