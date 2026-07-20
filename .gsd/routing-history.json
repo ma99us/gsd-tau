@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "patterns": {
+    "execute-task": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 1,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 0,
+        "fail": 0
+      }
+    }
+  },
+  "feedback": [],
+  "updatedAt": "2026-07-20T13:52:33.437Z"
+}

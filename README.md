@@ -3,8 +3,9 @@
 A Windows desktop shell for [GSD pi](https://www.npmjs.com/package/@opengsd/gsd-pi) —
 multi-project, multi-window, chat-first, session-persistent.
 
-**Status:** design phase. No shippable code yet. All design decisions and phase
-plans are in [`docs/`](./docs/README.md).
+**Status:** planning complete. No shippable code yet. Phases 1–3 are pre-planned
+as GSD milestones M002–M004; ready for `gsd auto`. All design decisions and
+phase plans are in [`docs/`](./docs/README.md).
 
 ## What it does
 
@@ -17,7 +18,8 @@ GitHub Copilot login, same models — behind a native Windows UI with:
 - All sessions survive reboots.
 - Clear visual state per session: needs-input, working, stopped, auto-mode.
 - Windows toasts when a session is waiting on you.
-- Live model picker and context-window utilisation gauge.
+- Live model picker, thinking level selector, and context-window gauge.
+- Proactive context-full nudge with one-click `/compact`.
 - First-class GitHub Copilot login flow.
 
 ## What it isn't
@@ -31,11 +33,14 @@ GitHub Copilot login, same models — behind a native Windows UI with:
 
 ## Design docs
 
-Start at [`docs/README.md`](./docs/README.md) for the reading order.
+Start at [`docs/README.md`](./docs/README.md) for the reading order (21 docs).
 
 Highlights:
-- [docs/00-vision-and-requirements.md](./docs/00-vision-and-requirements.md) — 11 requirements
-- [docs/10-architecture.md](./docs/10-architecture.md) — process model
+- [docs/00-vision-and-requirements.md](./docs/00-vision-and-requirements.md) — requirements
+- [docs/10-architecture.md](./docs/10-architecture.md) — process model and module map
+- [docs/15-ipc-bridge.md](./docs/15-ipc-bridge.md) — `window.gsd.*` IPC surface
+- [docs/40-ui-design.md](./docs/40-ui-design.md) — window/tab/session layout
+- [docs/45-chat-experience.md](./docs/45-chat-experience.md) — chat pane spec
 - [docs/plan/ROADMAP.md](./docs/plan/ROADMAP.md) — 13-phase build plan
 - [docs/decisions/](./docs/decisions/) — 7 ADRs
 

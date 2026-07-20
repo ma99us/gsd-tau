@@ -28,10 +28,10 @@ decisions are captured there — do not re-derive from scratch.
   jobs on Windows runners use `shell: pwsh`.
 - **Never touch `.gsd/gsd.db` directly.** WAL-locked single-writer. Use
   `gsd_milestone_status` (GSD tool). Do NOT query via sqlite3 or node.
-- **Shell: `gsd_exec runtime:node` + `execSync('pwsh -NoProfile -Command "..."', { encoding: 'utf8', cwd, timeout })`.**
-  The `bash` tool requires WSL which is broken on this machine (Hyper-V error).
-  `bg_shell` also fails. All shell/git ops go through node execSync calling pwsh.
-  pwsh 7.6.3 confirmed.
+- **Shell ops: prefer `pwsh -NoProfile -Command "..."`.** `bash` and `bg_shell`
+  tools work but PowerShell is the project standard. For scripts that need
+  node APIs alongside shell calls, use `gsd_exec runtime:node` +
+  `execSync('pwsh ...', { encoding: 'utf8', cwd, timeout })`. pwsh 7.6.3 confirmed.
 - **Never spawn `gsd` without `--mode rpc`.** No TUI scraping.
 - **Never import from pi's private modules** (`packages/pi-*/dist/*`). Public
   surface only: `@opengsd/rpc-client`, `@opengsd/contracts` (types).
@@ -53,15 +53,26 @@ decisions are captured there — do not re-derive from scratch.
 docs/
 ├── README.md                    ← reading order + non-requirements
 ├── 00-vision-and-requirements.md
+├── 05-onboarding.md             ← first-run, [+] flyout, session lifecycle
 ├── 10-architecture.md
+├── 11-error-handling.md         ← error taxonomy, recovery paths, UI treatment
+├── 12-logging.md                ← electron-log, rotation, structured format
+├── 13-security.md               ← Electron baseline, IPC hardening, threat model
+├── 15-ipc-bridge.md             ← window.gsd.* preload API surface
 ├── 20-pi-integration.md
 ├── 30-persistence.md
-├── 40-ui-design.md
+├── 40-ui-design.md              ← session header, git status bar, tray
+├── 41-design-system.md          ← token layer, theming, cva(), components
+├── 42-settings.md               ← settings schema, global+per-project overrides
+├── 45-chat-experience.md        ← message anatomy, slash commands, 85% nudge
+├── 46-session-export.md         ← Markdown/JSON export, UI entry points
 ├── 50-auto-run-view.md
-├── 60-model-and-context.md
+├── 60-model-and-context.md      ← model picker, thinking level, context selector
+├── 65-copilot-quota.md
 ├── 70-auth-github-copilot.md
 ├── 80-forward-compatibility.md
 ├── 90-tech-stack.md
+├── 91-auto-update.md            ← electron-updater, channels, install prompt
 ├── decisions/ADR-001..007-*.md
 └── plan/
     ├── ROADMAP.md               ← 13 phases sequenced
@@ -100,6 +111,36 @@ daemon package, pi extensions API.
 [docs/40-ui-design.md](./docs/40-ui-design.md) for the flow,
 [docs/plan/PHASE-2-ui-request-bridge.md](./docs/plan/PHASE-2-ui-request-bridge.md)
 for the implementation plan. Shutdown MUST cancel every open blocker or pi hangs.
+
+### …writing any IPC channel or preload method
+[docs/15-ipc-bridge.md](./docs/15-ipc-bridge.md) — the full `window.gsd.*`
+namespaced API surface. Add new channels here first, then implement.
+
+### …building settings storage or UI
+[docs/42-settings.md](./docs/42-settings.md) — schema, global + per-project
+overrides, effective merge, runtime propagation, settings screen layout.
+
+### …building the chat pane, composer, or slash commands
+[docs/45-chat-experience.md](./docs/45-chat-experience.md) — message anatomy,
+tool cards, streaming, scroll behaviour, slash commands, context-full 85% nudge.
+
+### …building the thinking level or context window controls
+[docs/60-model-and-context.md](./docs/60-model-and-context.md) — thinking level
+chip and context window tier selector live in the session header. Only show
+controls when `ModelInfo` confirms the model supports them.
+
+### …adding logging to any subsystem
+[docs/12-logging.md](./docs/12-logging.md) — canonical context names, what is
+never logged (message content, credentials), renderer log IPC bridge.
+
+### …touching error states or recovery flows
+[docs/11-error-handling.md](./docs/11-error-handling.md) — error taxonomy,
+UI treatment per error class, recovery path for pi crashes (manual retry only).
+
+### …touching first-run, project open, or session restore
+[docs/05-onboarding.md](./docs/05-onboarding.md) — first-run empty state,
+`[+]` flyout (Open/Browse/Create/Recents), new-project creation dialog (§4.8),
+session close and restore lifecycle, keyboard shortcuts.
 
 ### …working on session state, tabs, or windows
 [docs/10-architecture.md](./docs/10-architecture.md) for the process model,
