@@ -35,6 +35,7 @@ export type Unsubscribe = () => void
  * never import from main/ or preload/.
  */
 export interface GsdApi {
+  showFolderPicker(): Promise<string | null>
   openProject(cwd: string): Promise<SessionId>
   prompt(sessionId: SessionId, text: string): Promise<void>
   abort(sessionId: SessionId): Promise<void>

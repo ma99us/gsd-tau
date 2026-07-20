@@ -1,6 +1,6 @@
 import { RpcClient } from '@opengsd/rpc-client'
 import type { RpcInitResult } from '@opengsd/rpc-client'
-import { resolvePiBinary } from './resolve-pi'
+import { resolvePiBinary, resolveSystemNode } from './resolve-pi'
 
 /**
  * Thrown when the RPC client fails the v2 init handshake, or when the
@@ -55,10 +55,27 @@ export async function createClient(opts: CreateClientOptions): Promise<RpcClient
 
   const client = new RpcClient({ cliPath, cwd: opts.cwd })
 
+  // RpcClient.start() uses `spawn(process.execPath, [cliPath])` internally.
+  // In Electron, process.execPath is the Electron binary which embeds Node 20 —
+  // too old for gsd-pi (requires >= 22). Temporarily override with the system
+  // node.exe so the spawned loader process runs under the correct version.
+  const systemNode = resolveSystemNode(cliPath)
+  const originalExecPath = process.execPath
+  if (systemNode) {
+    ;(process as NodeJS.Process & { execPath: string }).execPath = systemNode
+    console.log(`[client-factory] overriding process.execPath: ${systemNode}`)
+  } else {
+    console.warn('[client-factory] could not find system node >= 22; using default execPath')
+  }
+
   // Phase 1: spawn the process.
   // start() failures (bad binary, permission denied, etc.) propagate as-is so
   // the caller sees the raw OS error alongside the piPath it attempted to use.
-  await client.start()
+  try {
+    await client.start()
+  } finally {
+    ;(process as NodeJS.Process & { execPath: string }).execPath = originalExecPath
+  }
 
   // Phase 2: v2 handshake.
   let initResult: RpcInitResult

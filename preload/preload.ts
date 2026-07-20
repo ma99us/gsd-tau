@@ -12,6 +12,7 @@ import type {
 // Mirrored from main/ipc/handlers.ts — do NOT import from main/ in the preload.
 // Keeping them local avoids bundling main-process code into the preload bundle.
 const IPC = {
+  SHOW_FOLDER_PICKER: 'showFolderPicker',
   OPEN_PROJECT: 'openProject',
   PROMPT: 'prompt',
   ABORT: 'abort',
@@ -39,6 +40,9 @@ const PUSH = {
 export function createGsdApi(): GsdApi {
   return {
     // ── invoke methods ─────────────────────────────────────────────────────────
+
+    showFolderPicker: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.SHOW_FOLDER_PICKER),
 
     openProject: (cwd: string): Promise<SessionId> =>
       ipcRenderer.invoke(IPC.OPEN_PROJECT, cwd),

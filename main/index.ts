@@ -1,3 +1,6 @@
+// Logger must be the first import — initialises file transport and overrides
+// console.* so all subsequent output is captured to %APPDATA%\gsd-tau\logs\main.log.
+import './logger'
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { SessionManager } from './session/session-manager'

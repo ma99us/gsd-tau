@@ -21,7 +21,7 @@
         "fail": 0
       },
       "standard": {
-        "success": 5,
+        "success": 6,
         "fail": 1
       },
       "heavy": {
@@ -31,7 +31,7 @@
     },
     "run-uat": {
       "light": {
-        "success": 5,
+        "success": 6,
         "fail": 0
       },
       "standard": {
@@ -42,8 +42,22 @@
         "success": 0,
         "fail": 0
       }
+    },
+    "validate-milestone": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 1,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 0,
+        "fail": 0
+      }
     }
   },
   "feedback": [],
-  "updatedAt": "2026-07-20T16:18:45.687Z"
+  "updatedAt": "2026-07-20T16:29:29.641Z"
 }

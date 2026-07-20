@@ -28,7 +28,7 @@
 - [x] **S05: Renderer Chat View** `risk:low` `depends:[S04]`
   > After this: Full chat turn visible: user message, streaming assistant text, tool card.
 
-- [ ] **S06: Shutdown and Smoke Test** `risk:medium` `depends:[S05]`
+- [x] **S06: Shutdown and Smoke Test** `risk:medium` `depends:[S05]`
   > After this: Playwright test run passes 10 consecutive times.
 
 ## Boundary Map

@@ -1,6 +1,80 @@
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { spawnSync } from 'child_process'
-import { join } from 'path'
+import { join, dirname } from 'path'
+
+/**
+ * Derive the system node.exe path from a resolved loader.js path.
+ *
+ * loader.js lives at: <nodeDir>/node_modules/@opengsd/gsd-pi/dist/loader.js
+ * node.exe lives at:  <nodeDir>/node.exe
+ *
+ * So node.exe is exactly 4 directories above loader.js.
+ */
+function nodeExeFromLoader(loaderPath: string): string | null {
+  const candidate = join(dirname(loaderPath), '..', '..', '..', '..', 'node.exe')
+  return existsSync(candidate) ? candidate : null
+}
+
+/**
+ * Resolve the absolute path to a system node.exe that satisfies the
+ * >= 22 requirement of gsd-pi.
+ *
+ * Resolution order:
+ *  1. Derive from loaderPath (sibling node.exe in the same node install).
+ *  2. `where node` on system PATH.
+ *  3. Well-known nvm4w location.
+ *
+ * Returns null if nothing satisfying is found (caller falls back gracefully).
+ */
+export function resolveSystemNode(loaderPath?: string): string | null {
+  const candidates: (string | null)[] = [
+    loaderPath ? nodeExeFromLoader(loaderPath) : null,
+    ...findNodeOnPath(),
+    'C:\\nvm4w\\nodejs\\node.exe',
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate || !existsSync(candidate)) continue
+    if (isNodeVersionSufficient(candidate)) return candidate
+  }
+  return null
+}
+
+/** Run `where node` and return all .exe candidates found. */
+function findNodeOnPath(): string[] {
+  try {
+    const result = spawnSync('where', ['node'], {
+      encoding: 'utf8',
+      shell: false,
+      timeout: 5_000,
+    })
+    if (!result.error && result.status === 0 && result.stdout) {
+      return result.stdout
+        .trim()
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.toLowerCase().endsWith('.exe'))
+    }
+  } catch {
+    // ignore
+  }
+  return []
+}
+
+/** Returns true if the given node binary reports a version >= 22. */
+function isNodeVersionSufficient(nodePath: string): boolean {
+  try {
+    const result = spawnSync(nodePath, ['--version'], {
+      encoding: 'utf8',
+      timeout: 5_000,
+    })
+    if (result.status !== 0 || !result.stdout) return false
+    const m = result.stdout.trim().match(/^v(\d+)\./)
+    return m ? parseInt(m[1], 10) >= 22 : false
+  } catch {
+    return false
+  }
+}
 
 /**
  * Thrown when the gsd (pi) binary cannot be located on this machine.
@@ -14,8 +88,37 @@ export class ResolvePiError extends Error {
 }
 
 /**
+ * Given a resolved `.cmd` wrapper path, derive the companion JS loader path.
+ *
+ * On Windows, `gsd.cmd` lives next to node.exe and reads:
+ *   node "%dp0%\node_modules\@opengsd\gsd-pi\dist\loader.js" %*
+ *
+ * RpcClient uses `spawn(process.execPath, [cliPath, ...args])` so cliPath
+ * must be the `.js` file, NOT the `.cmd` wrapper.
+ */
+function deriveJsFromCmd(cmdPath: string): string | null {
+  const dir = dirname(cmdPath)
+  const candidate = join(dir, 'node_modules', '@opengsd', 'gsd-pi', 'dist', 'loader.js')
+  if (existsSync(candidate)) return candidate
+
+  // Fallback: parse the cmd file to extract the js path
+  try {
+    const content = readFileSync(cmdPath, 'utf8')
+    // Match: node_modules\@opengsd\gsd-pi\dist\loader.js or similar
+    const m = content.match(/node_modules[\\/]@opengsd[\\/]gsd-pi[\\/]dist[\\/]\S+\.js/)
+    if (m) {
+      const jsPath = join(dir, m[0].replace(/\\/g, '/'))
+      if (existsSync(jsPath)) return jsPath
+    }
+  } catch {
+    // ignore read errors
+  }
+  return null
+}
+
+/**
  * Attempt to locate 'gsd' via Windows `where` (system PATH search).
- * Returns the first match or null on any failure.
+ * Returns the JS loader path (not the .cmd wrapper) or null on any failure.
  */
 function findGsdOnPath(): string | null {
   try {
@@ -25,8 +128,15 @@ function findGsdOnPath(): string | null {
       timeout: 5_000,
     })
     if (!result.error && result.status === 0 && result.stdout) {
-      const first = result.stdout.trim().split(/\r?\n/)[0]?.trim()
-      return first || null
+      // `where gsd` may return multiple lines; prefer .cmd over .ps1
+      const lines = result.stdout.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      const cmdLine = lines.find((l) => l.toLowerCase().endsWith('.cmd')) ?? lines[0]
+      if (!cmdLine) return null
+      // Derive the JS file from the .cmd wrapper
+      if (cmdLine.toLowerCase().endsWith('.cmd')) {
+        return deriveJsFromCmd(cmdLine)
+      }
+      return cmdLine
     }
   } catch {
     // spawnSync itself can throw if the OS cannot find 'where' — safe to swallow.
@@ -35,10 +145,10 @@ function findGsdOnPath(): string | null {
 }
 
 /**
- * Build the list of well-known gsd install paths.
+ * Build the list of well-known gsd .cmd wrapper paths.
  * Evaluated at call time so env vars reflect the process state at resolution time.
  */
-function commonLocations(): string[] {
+function commonCmdLocations(): string[] {
   const appData = process.env.APPDATA ?? ''
   const localAppData = process.env.LOCALAPPDATA ?? ''
   const userProfile = process.env.USERPROFILE ?? ''
@@ -92,9 +202,10 @@ export function resolvePiBinary(): string {
   }
 
   // ── Step 3: probe well-known install locations ────────────────────────────
-  for (const loc of commonLocations()) {
-    if (loc && existsSync(loc)) {
-      return loc
+  for (const cmdLoc of commonCmdLocations()) {
+    if (cmdLoc && existsSync(cmdLoc)) {
+      const jsPath = deriveJsFromCmd(cmdLoc)
+      if (jsPath) return jsPath
     }
   }
 
@@ -103,7 +214,7 @@ export function resolvePiBinary(): string {
     'Could not locate the gsd (pi) binary.\n' +
       'Options:\n' +
       '  • Install pi globally:   npm install -g @opengsd/gsd-pi\n' +
-      '  • Set the path manually: GSD_PI_PATH=C:\\path\\to\\gsd.cmd\n' +
+      '  • Set the path manually: GSD_PI_PATH=C:\\path\\to\\dist\\loader.js\n' +
       'After installing, restart gsd-tau.'
   )
 }

@@ -58,21 +58,49 @@ export function useSession(): UseSessionReturn {
   handleEventRef.current = (event: SessionEvent): void => {
     switch (event.type) {
       // ── turn lifecycle ─────────────────────────────────────────────────────
-      case 'agent_start': {
-        const id = nextId('turn')
-        currentAssistantId.current = id
-        dispatch({ type: 'AGENT_START', id })
+      case 'agent_start':
+      case 'turn_start': {
+        // Only open a new assistant turn if one isn't already open.
+        // Both agent_start and turn_start fire for the same logical turn;
+        // creating a turn on the second event would duplicate the placeholder.
+        if (currentAssistantId.current === null) {
+          const id = nextId('turn')
+          currentAssistantId.current = id
+          dispatch({ type: 'AGENT_START', id })
+        }
         break
       }
 
-      case 'agent_end': {
+      case 'agent_end':
+      case 'turn_end':
+      case 'execution_complete': {
         currentAssistantId.current = null
         break
       }
 
       // ── streaming text ─────────────────────────────────────────────────────
-      case 'text_delta': {
-        const delta = String(event.text ?? '')
+      case 'text_delta':
+      case 'message_update': {
+        // message_update wraps pi's internal assistant message event.
+        // The actual text delta lives at event.assistantMessageEvent.delta.
+        // text_delta (legacy) carries it directly on event.text.
+        if (event.type === 'message_update') {
+          console.debug('[useSession] message_update payload:', JSON.stringify(event).slice(0, 200))
+        }
+        const assistantEvt = (event as Record<string, unknown>).assistantMessageEvent as
+          | Record<string, unknown>
+          | undefined
+        // text_start fires before the first text_delta and would duplicate the first token.
+        // text_end carries no new delta. Skip both; only process text_delta sub-events.
+        if (assistantEvt && assistantEvt.type !== 'text_delta') break
+        const delta = assistantEvt
+          ? String(assistantEvt.delta ?? '')
+          : String(
+              (event as Record<string, unknown>).text ??
+              (event as Record<string, unknown>).delta ??
+              (event as Record<string, unknown>).content ??
+              ''
+            )
         const cid = currentAssistantId.current
 
         if (!cid) {

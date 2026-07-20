@@ -13,11 +13,20 @@ const TEXT_DELTA_THROTTLE_MS = 16
 /**
  * Agent event types that have a dedicated named channel on the emitter.
  * text_delta is intentionally absent — it is routed through the throttle path.
+ *
+ * turn_start/turn_end/message_update are emitted by newer pi versions as
+ * aliases for agent_start/agent_end/text_delta respectively.
  */
 const KNOWN_TYPES = new Set([
   'agent_start',
   'agent_end',
+  'turn_start',
+  'turn_end',
+  'execution_complete',
   'message',
+  'message_start',
+  'message_end',
+  'message_update',
   'tool_use',
   'tool_result',
 ])
@@ -65,6 +74,23 @@ export class SessionHandle extends EventEmitter {
   /** Current lifecycle state. Read-only via getter. */
   get clientState(): SessionClientState {
     return this._state
+  }
+
+  /**
+   * Forward a UI response to the underlying RpcClient.
+   * Used to respond to `extension_ui_request` events (Phase 2 bridge;
+   * Phase 1 callers send `{ cancelled: true }` to unblock pi).
+   */
+  sendUIResponse(
+    id: string,
+    response: {
+      value?: string
+      values?: string[]
+      confirmed?: boolean
+      cancelled?: boolean
+    },
+  ): void {
+    this._client.sendUIResponse(id, response)
   }
 
   /**
@@ -128,12 +154,13 @@ export class SessionHandle extends EventEmitter {
       return
     }
 
+    // Log ALL events (known and unknown) at debug level so nothing is invisible.
+    const payload = JSON.stringify(ev).slice(0, 300)
+    console.debug(`[SessionHandle:${this.sessionId}] dispatch "${ev.type}" payload=${payload}`)
+
     if (KNOWN_TYPES.has(ev.type)) {
       this.emit(ev.type, ev)
     } else {
-      console.debug(
-        `[SessionHandle:${this.sessionId}] unknown event type: "${ev.type}"`
-      )
       this.emit('unknown-event', { event: ev })
     }
 

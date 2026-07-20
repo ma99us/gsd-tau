@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { spawnSync } from 'child_process'
 import { resolvePiBinary, ResolvePiError } from './resolve-pi'
 
 // vi.mock calls are hoisted before imports by vitest's transform, so the SUT
 // receives the mocked modules even though these lines appear after the imports.
-vi.mock('fs', () => ({ existsSync: vi.fn() }))
+vi.mock('fs', () => ({ existsSync: vi.fn(), readFileSync: vi.fn() }))
 vi.mock('child_process', () => ({ spawnSync: vi.fn() }))
 
 // Typed handles to the mocked functions (set once after hoisting takes effect)
 const mockExistsSync = vi.mocked(existsSync)
+const mockReadFileSync = vi.mocked(readFileSync)
 const mockSpawnSync = vi.mocked(spawnSync)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -49,15 +50,17 @@ describe('resolvePiBinary', () => {
   })
 
   // ── Case 1: PATH hit ────────────────────────────────────────────────────────
-  it('returns the path found on the system PATH via `where gsd`', () => {
-    // GSD_PI_PATH empty → step 1 skipped; where succeeds → step 2 returns
+  it('returns the JS loader path derived from the .cmd found on the system PATH via `where gsd`', () => {
+    // GSD_PI_PATH empty → step 1 skipped; where succeeds → step 2 returns JS path
     vi.stubEnv('GSD_PI_PATH', '')
     mockSpawnSync.mockReturnValue(whereOk('C:\\nvm4w\\nodejs\\gsd.cmd'))
-    mockExistsSync.mockReturnValue(false) // step 3 must not fire
+    const expectedJs = 'C:\\nvm4w\\nodejs\\node_modules\\@opengsd\\gsd-pi\\dist\\loader.js'
+    // existsSync returns true only for the derived JS loader path
+    mockExistsSync.mockImplementation((p) => p === expectedJs)
 
     const result = resolvePiBinary()
 
-    expect(result).toBe('C:\\nvm4w\\nodejs\\gsd.cmd')
+    expect(result).toBe(expectedJs)
     expect(mockSpawnSync).toHaveBeenCalledWith(
       'where',
       ['gsd'],

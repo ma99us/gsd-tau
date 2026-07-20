@@ -1,4 +1,4 @@
-import { ipcMain, webContents as electronWebContents } from 'electron'
+import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } from 'electron'
 import type { WebContents } from 'electron'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
 import type { SessionId } from '../../shared/types'
@@ -14,6 +14,7 @@ import type { SessionManager } from '../session/session-manager'
 
 /** Renderer → main request/response channels (ipcRenderer.invoke). */
 export const IPC = {
+  SHOW_FOLDER_PICKER: 'showFolderPicker',
   OPEN_PROJECT: 'openProject',
   PROMPT: 'prompt',
   ABORT: 'abort',
@@ -87,6 +88,20 @@ export function registerHandlers(
 ): () => void {
   const sessions = new Map<SessionId, SessionEntry>()
 
+  // ── showFolderPicker ─────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.SHOW_FOLDER_PICKER,
+    async (event): Promise<string | null> => {
+      const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
+      const result = await dialog.showOpenDialog(win as BrowserWindow, {
+        title: 'Open Project Folder',
+        properties: ['openDirectory', 'createDirectory'],
+      })
+      if (result.canceled || result.filePaths.length === 0) return null
+      return result.filePaths[0]
+    },
+  )
+
   // ── openProject ──────────────────────────────────────────────────────────────
   ipcMain.handle(
     IPC.OPEN_PROJECT,
@@ -97,8 +112,15 @@ export function registerHandlers(
       const machine = new SessionStateMachine()
 
       // Event types that drive state transitions in the machine.
-      // (transport-error is handled on its own channel below.)
-      const STATE_TRANSITIONS = new Set<string>(['agent_start', 'agent_end'])
+      // turn_start/turn_end are emitted by newer pi versions as aliases
+      // for agent_start/agent_end.
+      const STATE_TRANSITIONS: Record<string, StateMachineInputEvent> = {
+        agent_start: 'agent_start',
+        turn_start: 'agent_start',
+        agent_end: 'agent_end',
+        turn_end: 'agent_end',
+        execution_complete: 'agent_end',
+      }
 
       // ── handle 'event' ───────────────────────────────────────────────────────
       // Fires for every non-error, non-transport-error event (including throttled
@@ -107,8 +129,28 @@ export function registerHandlers(
         // Reset the 30 s inactivity watchdog while the session is Working.
         machine.heartbeat()
 
-        if (STATE_TRANSITIONS.has(ev.type)) {
-          machine.feed(ev.type as StateMachineInputEvent)
+        const machineEvent = STATE_TRANSITIONS[ev.type]
+        if (machineEvent) {
+          machine.feed(machineEvent)
+        }
+
+        // extension_ui_request handling — Phase 1 partial bridge.
+        //
+        // Non-interactive methods (setStatus, setWidget) are auto-acknowledged
+        // so pi stops retrying them every 30 s. Interactive methods (ask,
+        // confirm, prompt) are left pending — Phase 2 will show real dialogs.
+        if (ev.type === 'extension_ui_request') {
+          const req = ev as { type: string; id?: string; method?: string }
+          const NON_INTERACTIVE = new Set(['setStatus', 'setWidget', 'updateStatus', 'clearStatus'])
+          if (req.id && req.method && NON_INTERACTIVE.has(req.method)) {
+            console.debug(`[handlers] ack non-interactive extension_ui_request method=${req.method} id=${req.id}`)
+            handle.sendUIResponse(req.id, { confirmed: true })
+          } else {
+            console.info(`[handlers] unhandled extension_ui_request (phase 2):`, JSON.stringify(ev))
+          }
+        }
+        if (ev.type === 'extension_ui_snapshot') {
+          console.debug(`[handlers] extension_ui_snapshot:`, JSON.stringify(ev))
         }
 
         fanOut(getAllWebContents, PUSH.SESSION_EVENT, { sessionId: id, event: ev })
@@ -181,6 +223,7 @@ export function registerHandlers(
 
   // ── cleanup ─────────────────────────────────────────────────────────────────
   return function cleanup(): void {
+    ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
     ipcMain.removeHandler(IPC.OPEN_PROJECT)
     ipcMain.removeHandler(IPC.PROMPT)
     ipcMain.removeHandler(IPC.ABORT)
