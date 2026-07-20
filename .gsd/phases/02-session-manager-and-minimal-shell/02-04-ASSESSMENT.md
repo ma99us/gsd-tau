@@ -1,0 +1,91 @@
+---
+sliceId: S04
+uatType: runtime-executable
+verdict: PASS
+attempt: 1
+runId: uat:M002:S04:attempt-1
+worktreeRoot: D:\Projects\gsd-tau
+date: 2026-07-20T15:01:36.606Z
+---
+
+# UAT Result - S04
+
+## Checks
+
+| Check | Mode | Result | Evidence | Notes |
+|-------|------|--------|----------|-------|
+| IPC handlers registered and dispatch correctly — pnpm test -- ipc/handlers, 23 tests pass | runtime | PASS | gsd_uat_exec:d86a8d30-744b-4ff2-b6f6-0f32c94c03c3 | 23/23 tests passed in ipc/handlers suite; ipcMain.handle calls and webContents.send fan-out verified. |
+| Preload bridge exposes window.gsd cleanly — pnpm test -- preload, 31+ tests pass; contextBridge called once with 'gsd'; onEvent/onStateChange return unsubscribe functions; no raw ipcRenderer in exposed object | runtime | PASS | gsd_uat_exec:d5d790a3-fa9c-4bdd-8048-19ea96f762c1<br>gsd_uat_exec:9e51b2b9-3709-4597-a812-c36b8c529b5b | 32/32 tests passed. Artifact check confirms: exposeInMainWorld present with 'gsd' key, unsubscribe function tests present. contextBridge call shape and API surface fully verified by unit tests. |
+| Isolation guards hold — preload test assertions confirm window.require/process not leaked in contextBridge-exposed object; contextIsolation enforced by Electron at runtime | artifact | PASS | gsd_uat_exec:9e51b2b9-3709-4597-a812-c36b8c529b5b<br>gsd_uat_exec:d5d790a3-fa9c-4bdd-8048-19ea96f762c1 | UAT spec and slice summary both state that contextIsolation verification (window.require===undefined in DevTools) belongs to S05 after pnpm dev is wired up. Unit tests verify the contextBridge call shape; the 32-test preload suite passes. Isolation guard at runtime is deferred to S05 DevTools smoke check as documented. |
+| Full suite baseline — pnpm test: 154/154 pass (7 files), no skipped or failing tests | runtime | PASS | gsd_uat_exec:a4a0b876-e39c-4922-8064-14de28d69ea4 | 154/154 tests passed across 7 test files in 688ms with no skipped or failing tests. |
+
+## Overall Verdict
+
+PASS - All 154 tests pass across 7 files; ipc/handlers 23/23 and preload 32/32 pass; contextBridge shape and unsubscribe behavior verified by unit tests; runtime contextIsolation spot-check deferred to S05 per UAT spec.
+
+## Tool Presentation
+
+```json
+{
+  "blockedTools": [
+    {
+      "name": "edit",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "write",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "gsd_exec",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "gsd_summary_save",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "gsd_save_gate_result",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "search-the-web",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "WebSearch",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "Bash",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "Write",
+      "reason": "forbidden during run-uat"
+    },
+    {
+      "name": "Edit",
+      "reason": "forbidden during run-uat"
+    }
+  ],
+  "presentedTools": [
+    "gsd_uat_exec",
+    "gsd_uat_result_save",
+    "gsd_resume",
+    "gsd_milestone_status",
+    "gsd_journal_query",
+    "find",
+    "glob",
+    "grep",
+    "ls",
+    "read"
+  ],
+  "surface": "mcp",
+  "toolPresentationPlanId": "run-uat/default-v1"
+}
+```
+
+## Gate
+
+Aggregate UAT gate saved as pass.

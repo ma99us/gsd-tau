@@ -5,7 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['main/**/*.test.ts', 'shared/**/*.test.ts', 'preload/**/*.test.ts'],
+    include: [
+      'main/**/*.test.ts',
+      'shared/**/*.test.ts',
+      'preload/**/*.test.ts',
+      'renderer/hooks/**/*.test.ts',
+    ],
     exclude: ['**/node_modules/**', '**/out/**', '**/dist/**'],
     passWithNoTests: true,
   },

@@ -22,7 +22,7 @@
 - [x] **S03: Session State Machine and Manager** `risk:medium` `depends:[S02]`
   > After this: State machine unit tests pass for all valid transitions.
 
-- [ ] **S04: IPC Bridge and Preload** `risk:medium` `depends:[S03]`
+- [x] **S04: IPC Bridge and Preload** `risk:medium` `depends:[S03]`
   > After this: DevTools console: window.gsd.prompt('hello') returns a response streamed via events.
 
 - [ ] **S05: Renderer Chat View** `risk:low` `depends:[S04]`
