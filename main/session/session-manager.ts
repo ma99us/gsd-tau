@@ -146,6 +146,8 @@ export class SessionManager {
     this._sessions.delete(id)
 
     const { handle, client } = entry
+    const closeStart = Date.now()
+    console.log(`[SessionManager] closing session ${id}`)
 
     // Step 1: stop the event pump and underlying client.stop() (via handle).
     await handle.stop()
@@ -160,9 +162,13 @@ export class SessionManager {
 
     if (verdict === 'timeout') {
       console.warn(
-        `[SessionManager] shutdown timed out for session ${id} — falling back to stop()`,
+        `[SessionManager] shutdown timed out for session ${id} after ${Date.now() - closeStart}ms — falling back to stop()`,
       )
       await client.stop().catch(() => undefined)
+    } else {
+      console.log(
+        `[SessionManager] session ${id} closed in ${Date.now() - closeStart}ms`,
+      )
     }
   }
 

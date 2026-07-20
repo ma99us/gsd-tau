@@ -1,0 +1,299 @@
+{
+  "runId": "uat:M002:S05:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M002",
+  "sliceId": "S05",
+  "uatType": "browser-executable",
+  "verdict": "PARTIAL",
+  "gateVerdict": "flag",
+  "evaluatedAt": "2026-07-20T15:24:17.354Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": true,
+  "modePolicy": {
+    "browserTools": true,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "browser"
+    ]
+  },
+  "checks": [
+    {
+      "description": "All key S05 renderer files are present: App.tsx, useSession.ts, turnsReducer.ts, TurnList.tsx, Composer.tsx, ToolCard.tsx, global.d.ts",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "5c677794-0918-411f-ad25-7029be78f9af"
+        }
+      ],
+      "id": "UAT-S05-ART-01",
+      "mode": "artifact",
+      "notes": "All 7 key renderer files confirmed present under renderer/ tree.",
+      "result": "PASS"
+    },
+    {
+      "description": "TypeScript compiles without errors (excluding known pre-existing session-manager.test.ts issue)",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "75057524-a050-4937-b6ed-f56e16876dbf"
+        }
+      ],
+      "id": "UAT-S05-ART-02",
+      "mode": "artifact",
+      "notes": "tsc --noEmit reports zero errors outside the known pre-existing Mock type mismatch in session-manager.test.ts.",
+      "result": "PASS"
+    },
+    {
+      "description": "ToolCard component implements expand/collapse, pending state, exported formatInputSummary/formatResult, and hasExpandableContent guard",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "ec909a69-b4d3-48f8-9995-444ca2908e0f"
+        }
+      ],
+      "id": "UAT-S05-ART-03",
+      "mode": "artifact",
+      "notes": "Static code analysis confirms all five features present in ToolCard.tsx.",
+      "result": "PASS"
+    },
+    {
+      "description": "Composer implements Enter-to-send, Shift+Enter newline, and disabled state",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "ec909a69-b4d3-48f8-9995-444ca2908e0f"
+        }
+      ],
+      "id": "UAT-S05-ART-04",
+      "mode": "artifact",
+      "notes": "Static check on Composer.tsx confirms Enter, shiftKey, and disabled keywords all present.",
+      "result": "PASS"
+    },
+    {
+      "description": "turnsReducer handles text_delta, tool_use, tool_result, agent_start, and implicit assistant fallback",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "7e46cd98-8c36-4990-9c25-18f5b52a76e1"
+        }
+      ],
+      "id": "UAT-S05-ART-05",
+      "mode": "artifact",
+      "notes": "All five event types confirmed present in turnsReducer.ts; implicit fallback pattern also present.",
+      "result": "PASS"
+    },
+    {
+      "description": "useSession uses handler-ref pattern, IPC subscription, and window.gsd.prompt",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "7e46cd98-8c36-4990-9c25-18f5b52a76e1"
+        }
+      ],
+      "id": "UAT-S05-ART-06",
+      "mode": "artifact",
+      "notes": "handleEventRef, on()/subscribe, and window.gsd.prompt all confirmed present in useSession.ts.",
+      "result": "PASS"
+    },
+    {
+      "description": "Full vitest suite passes — 170 tests across 8 test files",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "381ce945-cc2f-4d69-932b-e080d838785f"
+        }
+      ],
+      "id": "UAT-S05-RUNTIME-01",
+      "mode": "runtime",
+      "notes": "8 test files, 170 tests, all passed in 762ms.",
+      "result": "PASS"
+    },
+    {
+      "description": "turnsReducer unit tests: 16 tests covering RESET, USER_TURN, AGENT_START, TEXT_DELTA, TOOL_USE, TOOL_RESULT",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "6b1675a8-ad20-4da6-8792-80a314023e94"
+        }
+      ],
+      "id": "UAT-S05-RUNTIME-02",
+      "mode": "runtime",
+      "notes": "16/16 turnsReducer tests pass including implicit-fallback, tool_use creates new turn when currentAssistantId null, tool_result fills result and clears pending.",
+      "result": "PASS"
+    },
+    {
+      "description": "ToolCard unit tests: formatInputSummary (12 tests) and formatResult (10 tests) all pass",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "2a88e9f3-aa97-4d90-b0e2-c0b4d0b6b09d"
+        }
+      ],
+      "id": "UAT-S05-RUNTIME-03",
+      "mode": "runtime",
+      "notes": "22 ToolCard pure-function tests pass, covering truncation at 80 chars, circular-ref fallback, empty input, and all primitive/object/array types.",
+      "result": "PASS"
+    },
+    {
+      "description": "TC1: Folder picker sets project and enables Composer — launch pnpm dev, enter valid path, click Open, confirm picker disappears and Composer is enabled",
+      "evidence": [],
+      "id": "UAT-S05-TC1",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "Requires Electron window: run `pnpm dev`, enter `D:/Projects/gsd-tau` in the folder-picker text input, click Open. Expected: folder picker disappears, Composer textarea is active and enabled, no error shown. window.gsd IPC bridge is only available inside Electron preload — cannot be tested via browser_navigate to a standalone URL.",
+      "result": "NEEDS-HUMAN"
+    },
+    {
+      "description": "TC2: Sending 'hello' in the Composer streams an assistant response",
+      "evidence": [],
+      "id": "UAT-S05-TC2",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "Requires Electron + pi on PATH. After folder-picker step, type 'hello', press Enter. Expected: user bubble appears, assistant turn opens with streamed text, Composer clears and re-enables after turn completes.",
+      "result": "NEEDS-HUMAN"
+    },
+    {
+      "description": "TC3: ToolCard renders for tool_use/tool_result — type 'read package.json', confirm pending state, then result replaces pending",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "6b1675a8-ad20-4da6-8792-80a314023e94"
+        }
+      ],
+      "id": "UAT-S05-TC3",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "Reducer logic verified by unit tests (tool_use creates pending card, tool_result fills result and clears pending). Live Electron UI still needs human: type 'read package.json', press Enter, observe ToolCard with 'read' name and 80-char input summary, then result text.",
+      "result": "NEEDS-HUMAN"
+    },
+    {
+      "description": "TC4: ToolCard expand/collapse — click card to expand full result, click again to collapse",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "ec909a69-b4d3-48f8-9995-444ca2908e0f"
+        }
+      ],
+      "id": "UAT-S05-TC4",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "Code has expand/collapse and hasExpandableContent guard (no chevron for empty-input tools). Live UI interaction needs human: after TC3, click ToolCard to expand; click again to collapse.",
+      "result": "NEEDS-HUMAN"
+    },
+    {
+      "description": "TC5: Shift+Enter inserts newline; Enter alone submits",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "ec909a69-b4d3-48f8-9995-444ca2908e0f"
+        }
+      ],
+      "id": "UAT-S05-TC5",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "Composer.tsx has shiftKey check. Human verification: type partial message, press Shift+Enter — confirm newline inserted, NOT sent. Then press Enter alone — confirm message sent.",
+      "result": "NEEDS-HUMAN"
+    },
+    {
+      "description": "Edge: Empty Composer Enter does not send a message",
+      "evidence": [],
+      "id": "UAT-S05-EDGE1",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "Focus empty Composer, press Enter — turn list must remain unchanged. Requires live Electron window.",
+      "result": "NEEDS-HUMAN"
+    },
+    {
+      "description": "Edge: ToolCard with empty/minimal input — no chevron/expand control, no crash",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "ec909a69-b4d3-48f8-9995-444ca2908e0f"
+        }
+      ],
+      "id": "UAT-S05-EDGE2",
+      "mode": "browser",
+      "nonAutomatable": true,
+      "notes": "hasExpandableContent guard confirmed in code. Live Electron confirmation: trigger a tool_use with empty input; ToolCard should render without expand chevron.",
+      "result": "NEEDS-HUMAN"
+    }
+  ],
+  "presentation": {
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read",
+      "browser_navigate",
+      "browser_click",
+      "browser_type",
+      "browser_fill_form",
+      "browser_click_ref",
+      "browser_fill_ref",
+      "browser_wait_for",
+      "browser_assert",
+      "browser_verify",
+      "browser_screenshot",
+      "browser_snapshot_refs",
+      "browser_find",
+      "browser_get_console_logs",
+      "browser_get_network_logs",
+      "browser_evaluate",
+      "browser_reload",
+      "browser_batch",
+      "browser_act"
+    ],
+    "surface": "hybrid",
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 9 automatable artifact and runtime checks pass (170 tests, TypeScript clean, all S05 files present, all event handlers implemented); 7 live Electron UI checks are non-automatable as window.gsd IPC bridge is only available inside the Electron shell and cannot be driven via browser_navigate."
+}

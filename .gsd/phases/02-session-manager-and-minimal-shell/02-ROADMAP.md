@@ -25,7 +25,7 @@
 - [x] **S04: IPC Bridge and Preload** `risk:medium` `depends:[S03]`
   > After this: DevTools console: window.gsd.prompt('hello') returns a response streamed via events.
 
-- [ ] **S05: Renderer Chat View** `risk:low` `depends:[S04]`
+- [x] **S05: Renderer Chat View** `risk:low` `depends:[S04]`
   > After this: Full chat turn visible: user message, streaming assistant text, tool card.
 
 - [ ] **S06: Shutdown and Smoke Test** `risk:medium` `depends:[S05]`
