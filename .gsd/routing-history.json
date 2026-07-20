@@ -56,8 +56,22 @@
         "success": 0,
         "fail": 0
       }
+    },
+    "complete-milestone": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 1,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 0,
+        "fail": 0
+      }
     }
   },
   "feedback": [],
-  "updatedAt": "2026-07-20T16:29:29.641Z"
+  "updatedAt": "2026-07-20T18:08:15.214Z"
 }
