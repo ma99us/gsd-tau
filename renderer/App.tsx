@@ -15,9 +15,16 @@ import {
   addToastCapped,
   TOAST_TTL_MS,
 } from './components/InlineToast'
+import { enqueueModal, dequeueModal, removeFromQueue } from './state/modal-queue'
+import { SelectModal } from './components/modals/SelectModal'
+import { ConfirmModal } from './components/modals/ConfirmModal'
+import { InputModal } from './components/modals/InputModal'
+import { EditorModal } from './components/modals/EditorModal'
+import { FallbackModal } from './components/modals/FallbackModal'
 import type { StatusBarState } from './components/StatusBar'
 import type { ToastEntry } from './components/InlineToast'
-import type { SessionState, RpcExtensionUIRequest } from '../shared/types'
+import type { ModalQueue } from './state/modal-queue'
+import type { SessionState, RpcExtensionUIRequest, UiResponseInput } from '../shared/types'
 
 // ── Recent sessions persistence ───────────────────────────────────────────────
 
@@ -60,6 +67,8 @@ function App(): JSX.Element {
   // ── Non-modal UI-request state ─────────────────────────────────────────────
   const [statusBarState, setStatusBarState] = useState<StatusBarState>(emptyStatusBarState)
   const [toasts, setToasts] = useState<ToastEntry[]>([])
+  // ── Modal queue — blocking requests (select/confirm/input/editor/unknown) ──
+  const [modalQueue, setModalQueue] = useState<ModalQueue>([])
   /**
    * Buffered set_editor_text value — T09's EditorModal reads this ref on open
    * and clears it after consuming the prefill value.
@@ -77,9 +86,10 @@ function App(): JSX.Element {
   useEffect(() => {
     if (!sessionId) return
 
-    // Reset non-modal display state for the incoming session.
+    // Reset all transient display state for the incoming session.
     setStatusBarState(emptyStatusBarState)
     setToasts([])
+    setModalQueue([])
     editorPrefillRef.current = null
 
     const handleRequest = (request: RpcExtensionUIRequest): void => {
@@ -125,21 +135,46 @@ function App(): JSX.Element {
           break
         }
 
-        // Blocking methods (select, confirm, input, editor) are handled by
-        // T09's modal queue — not processed here.
+        // Any method not handled above is a blocking request that needs a
+        // modal response.  Known blockers: select, confirm, input, editor.
+        // Unknown future methods are handled by FallbackModal.
         default:
+          setModalQueue(prev => enqueueModal(prev, request))
           break
       }
     }
 
     const unsub = window.gsd.onUiRequestAdded(sessionId, handleRequest)
+
+    // When pi cancels a blocker externally (timeout, abort) before the user
+    // answers, remove it from the queue so the next queued modal shows.
+    const unsubRemoved = window.gsd.onUiRequestRemoved(sessionId, (requestId: string) => {
+      setModalQueue(prev => removeFromQueue(prev, requestId))
+    })
+
     return () => {
       unsub()
+      unsubRemoved()
     }
   }, [sessionId])
 
   const dismissToast = (id: string): void => {
     setToasts(prev => prev.filter(t => t.id !== id))
+  }
+
+  /**
+   * Called when the user responds to the active (front-of-queue) modal.
+   * Shifts the queue immediately so the next modal is shown without waiting
+   * for the IPC round-trip, then sends the response to pi.
+   */
+  const handleModalRespond = (
+    request: RpcExtensionUIRequest,
+    response: UiResponseInput,
+  ): void => {
+    setModalQueue(prev => dequeueModal(prev))
+    if (sessionId) {
+      void window.gsd.respondUI(sessionId, request.id, response)
+    }
   }
 
   const doOpen = async (path: string): Promise<void> => {
@@ -244,6 +279,8 @@ function App(): JSX.Element {
   // ── Session open: chat view ───────────────────────────────────────────────
   const isWorking = sessionState === 'Working'
   const isStopped = sessionState === 'Stopped'
+  const activeModal = modalQueue[0]
+  const queueDepth = modalQueue.length
 
   return (
     <div className="flex h-screen w-screen flex-col bg-neutral-900">
@@ -265,6 +302,16 @@ function App(): JSX.Element {
             >
               Abort
             </button>
+          )}
+          {/* Queue depth badge — shown when >1 blocking request is pending */}
+          {queueDepth > 1 && (
+            <span
+              className="flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white"
+              title={`${queueDepth} requests queued`}
+              aria-label={`${queueDepth} requests queued`}
+            >
+              {queueDepth}
+            </span>
           )}
           <StateIndicator state={sessionState} />
         </div>
@@ -288,6 +335,16 @@ function App(): JSX.Element {
 
       {/* Inline toasts — fixed position, overlaid above composer */}
       <InlineToast toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Active blocking modal from the queue (select/confirm/input/editor/fallback) */}
+      {activeModal !== undefined && (
+        <ActiveModalRouter
+          key={activeModal.id}
+          request={activeModal}
+          editorPrefillRef={editorPrefillRef}
+          onRespond={response => { handleModalRespond(activeModal, response) }}
+        />
+      )}
     </div>
   )
 }
@@ -306,6 +363,15 @@ function StateIndicator({ state }: { state: SessionState | null }): JSX.Element 
     )
   }
 
+  if (state === 'Waiting') {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-red-400">
+        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+        Waiting
+      </span>
+    )
+  }
+
   if (state === 'Stopped') {
     return <span className="text-xs text-red-400">Stopped</span>
   }
@@ -314,3 +380,70 @@ function StateIndicator({ state }: { state: SessionState | null }): JSX.Element 
 }
 
 export default App
+
+// ── Active modal router ───────────────────────────────────────────────────────
+
+type ActiveModalRouterProps = {
+  request: RpcExtensionUIRequest
+  editorPrefillRef: { current: string | null }
+  onRespond: (response: UiResponseInput) => void
+}
+
+/**
+ * Mounts the correct modal component for the front-of-queue blocking request.
+ * Keyed by request.id in the parent so React remounts the component (resetting
+ * internal state) whenever a new request becomes active.
+ *
+ * Editor prefill: reads editorPrefillRef.current on mount and passes it as
+ * `initialValue` to EditorModal, then clears the ref so the next editor
+ * request starts with a clean textarea unless pi sends another set_editor_text.
+ */
+function ActiveModalRouter({
+  request,
+  editorPrefillRef,
+  onRespond,
+}: ActiveModalRouterProps): JSX.Element {
+  // Read prefill synchronously — refs are mutable and safe to read during render.
+  const editorPrefill = request.method === 'editor' ? (editorPrefillRef.current ?? '') : ''
+
+  // Clear the prefill after mount so it is consumed only once.
+  useEffect(() => {
+    if (request.method === 'editor') {
+      editorPrefillRef.current = null
+    }
+  }, [request.id, request.method, editorPrefillRef])
+
+  switch (request.method) {
+    case 'select':
+      return (
+        <SelectModal
+          request={request as Extract<RpcExtensionUIRequest, { method: 'select' }>}
+          onRespond={onRespond}
+        />
+      )
+    case 'confirm':
+      return (
+        <ConfirmModal
+          request={request as Extract<RpcExtensionUIRequest, { method: 'confirm' }>}
+          onRespond={onRespond}
+        />
+      )
+    case 'input':
+      return (
+        <InputModal
+          request={request as Extract<RpcExtensionUIRequest, { method: 'input' }>}
+          onRespond={onRespond}
+        />
+      )
+    case 'editor':
+      return (
+        <EditorModal
+          request={request as Extract<RpcExtensionUIRequest, { method: 'editor' }>}
+          initialValue={editorPrefill}
+          onRespond={onRespond}
+        />
+      )
+    default:
+      return <FallbackModal request={request} onRespond={onRespond} />
+  }
+}

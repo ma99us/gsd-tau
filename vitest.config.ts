@@ -11,6 +11,7 @@ export default defineConfig({
       'preload/**/*.test.ts',
       'renderer/hooks/**/*.test.ts',
       'renderer/components/**/*.test.ts',
+      'renderer/state/**/*.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/out/**', '**/dist/**'],
     passWithNoTests: true,

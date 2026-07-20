@@ -1,68 +1,50 @@
 import { useState, useEffect, useRef } from 'react'
 import type { UiResponseInput, RpcExtensionUIRequest } from '@shared/types'
 
-type EditorRequest = Extract<RpcExtensionUIRequest, { method: 'editor' }>
-
-interface EditorModalProps {
-  request: EditorRequest
-  onRespond: (response: UiResponseInput) => void
-  /**
-   * Optional pre-filled content, supplied when a `set_editor_text` request
-   * arrived before this modal opened.  Only used to seed the initial
-   * `useState` value — subsequent edits are fully controlled by the user.
-   */
-  initialValue?: string
-}
-
-// ── Pure helpers (exported for unit tests) ────────────────────────────────────
+// ── Pure helper (exported for unit tests) ─────────────────────────────────────
 
 /**
- * Build the UiResponseInput payload for a submitted editor value.
- * Returns null when the value is empty (Submit should be disabled).
- * Newline-only content IS considered valid — the user may intend to submit
- * blank lines in a multi-line context.  Only a completely empty string is
- * rejected.
+ * Build the UiResponseInput payload for a fallback modal submission.
+ * An empty string is valid — the user may intend a blank acknowledgement
+ * for a notify-like unknown request type.
  */
-export function buildEditorResponse(value: string): UiResponseInput | null {
-  if (value.length === 0) return null
+export function buildFallbackResponse(value: string): UiResponseInput {
   return { value }
-}
-
-/**
- * Return true when the keyboard event is the Ctrl+Enter submit combo.
- * Exported for unit tests.  Accepts the minimal event shape needed.
- */
-export function isEditorSubmitCombo(
-  e: Pick<KeyboardEvent, 'key' | 'ctrlKey'>,
-): boolean {
-  return e.key === 'Enter' && e.ctrlKey
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-/**
- * Modal for pi's `editor` extension UI request.
- *
- * Renders a monospace multi-line textarea.
- * - Ctrl+Enter  → { value: text } (disabled when empty)
- * - Enter       → inserts newline (default textarea behaviour)
- * - Cancel / Escape / backdrop → { cancelled: true }
- *
- * Focus is placed on the textarea immediately; Escape cancels.
- */
-export function EditorModal({ request, onRespond, initialValue = '' }: EditorModalProps): JSX.Element {
-  const { title } = request
+interface FallbackModalProps {
+  request: RpcExtensionUIRequest
+  onRespond: (response: UiResponseInput) => void
+}
 
-  const [value, setValue] = useState(initialValue)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+/**
+ * Catch-all modal for any pi UI-request method this app does not recognise.
+ *
+ * Shows:
+ * - The unknown method name in the header.
+ * - The raw request JSON in a read-only code block so the user understands
+ *   what pi is asking for.
+ * - A plain text input for a free-form response value.
+ * - Cancel → { cancelled: true }
+ * - Send   → { value: text }
+ *
+ * Focus trap and Escape handling follow the same pattern as other modals.
+ * An empty string IS a valid response value (the user may want to ack without
+ * a meaningful payload), so Send is never disabled.
+ */
+export function FallbackModal({ request, onRespond }: FallbackModalProps): JSX.Element {
+  const [value, setValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
 
   // ── Initial focus ─────────────────────────────────────────────────────────
   useEffect(() => {
-    textareaRef.current?.focus()
+    inputRef.current?.focus()
   }, [])
 
-  // ── Focus trap + Escape handling ──────────────────────────────────────────
+  // ── Focus trap + keyboard handling ────────────────────────────────────────
   useEffect(() => {
     const el = dialogRef.current
     if (!el) return
@@ -78,7 +60,7 @@ export function EditorModal({ request, onRespond, initialValue = '' }: EditorMod
 
       const focusable = Array.from(
         el.querySelectorAll<HTMLElement>(
-          'textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
       )
       if (focusable.length === 0) return
@@ -106,36 +88,29 @@ export function EditorModal({ request, onRespond, initialValue = '' }: EditorMod
   }, [onRespond])
 
   // ── Event handlers ────────────────────────────────────────────────────────
-  const handleSubmit = (): void => {
-    const response = buildEditorResponse(value)
-    if (response) onRespond(response)
+  const handleSend = (): void => {
+    onRespond(buildFallbackResponse(value))
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (isEditorSubmitCombo(e as unknown as KeyboardEvent)) {
-      e.preventDefault()
-      handleSubmit()
-    }
-    // Plain Enter falls through to default textarea behaviour (inserts newline).
+  const handleCancel = (): void => {
+    onRespond({ cancelled: true })
   }
-
-  const canSubmit = value.length > 0
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onMouseDown={() => onRespond({ cancelled: true })}
+      onMouseDown={handleCancel}
       aria-hidden="true"
     >
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="editor-modal-title"
+        aria-labelledby="fallback-modal-title"
         tabIndex={-1}
         className={[
-          'relative w-full max-w-xl',
+          'relative w-full max-w-md',
           'rounded-xl border border-neutral-700 bg-neutral-800',
           'shadow-2xl outline-none',
         ].join(' ')}
@@ -144,42 +119,71 @@ export function EditorModal({ request, onRespond, initialValue = '' }: EditorMod
         {/* ── Header ── */}
         <div className="border-b border-neutral-700 px-5 py-4">
           <h2
-            id="editor-modal-title"
+            id="fallback-modal-title"
             className="text-sm font-semibold text-neutral-100"
           >
-            {title}
+            Unknown request:{' '}
+            <code className="rounded bg-neutral-700 px-1 py-0.5 font-mono text-xs text-amber-400">
+              {request.method}
+            </code>
           </h2>
+          <p className="mt-1 text-xs text-neutral-400">
+            pi sent a request type this version of gsd-tau does not recognise.
+          </p>
         </div>
 
-        {/* ── Textarea ── */}
-        <div className="px-5 py-4">
-          <textarea
-            ref={textareaRef}
+        {/* ── Raw payload ── */}
+        <div className="px-5 py-3">
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+            Raw request payload
+          </p>
+          <pre
+            className={[
+              'max-h-48 overflow-y-auto rounded-lg',
+              'border border-neutral-700 bg-neutral-900',
+              'px-3 py-2 font-mono text-xs text-neutral-300',
+            ].join(' ')}
+          >
+            {JSON.stringify(request, null, 2)}
+          </pre>
+        </div>
+
+        {/* ── Response input ── */}
+        <div className="px-5 pb-3">
+          <label
+            htmlFor="fallback-response-input"
+            className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-neutral-500"
+          >
+            Response value
+          </label>
+          <input
+            ref={inputRef}
+            id="fallback-response-input"
+            type="text"
             value={value}
             onChange={e => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            aria-label={title}
-            rows={10}
-            spellCheck={false}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+            placeholder="Enter a response value (or leave blank)…"
             className={[
-              'w-full resize-y rounded-lg px-3 py-2',
+              'w-full rounded-lg',
               'border border-neutral-600 bg-neutral-900',
-              'font-mono text-sm text-neutral-100',
-              'outline-none',
-              'focus:border-blue-500 focus:ring-1 focus:ring-blue-500',
-              'transition-colors',
+              'px-3 py-2 text-sm text-neutral-200',
+              'placeholder-neutral-600 outline-none',
+              'transition-colors focus:border-blue-500',
             ].join(' ')}
           />
-          <p className="mt-1.5 text-right text-xs text-neutral-500">
-            Ctrl+Enter to submit
-          </p>
         </div>
 
         {/* ── Footer ── */}
         <div className="flex justify-end gap-2 border-t border-neutral-700 px-5 py-4">
           <button
             type="button"
-            onClick={() => onRespond({ cancelled: true })}
+            onClick={handleCancel}
             className={[
               'rounded-lg px-4 py-2',
               'text-sm font-medium text-neutral-300',
@@ -190,17 +194,15 @@ export function EditorModal({ request, onRespond, initialValue = '' }: EditorMod
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
+            onClick={handleSend}
             className={[
               'rounded-lg px-4 py-2',
               'text-sm font-medium',
               'bg-blue-600 text-white',
               'transition-colors hover:bg-blue-500 active:bg-blue-700',
-              'disabled:cursor-not-allowed disabled:opacity-50',
             ].join(' ')}
           >
-            Submit
+            Send
           </button>
         </div>
       </div>
