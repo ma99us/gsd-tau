@@ -58,7 +58,7 @@ vi.mock('electron', () => ({
 /** Retrieve the handler registered via notification.on('click', handler). */
 function getClickHandler(): (() => void) | undefined {
   const clickCall = mockNotificationOn.mock.calls.find(
-    (c: [string, unknown]) => c[0] === 'click',
+    (c: unknown[]) => c[0] === 'click',
   )
   return clickCall?.[1] as (() => void) | undefined
 }

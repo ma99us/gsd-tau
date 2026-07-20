@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-20T20:13:32.042Z",
+  "lastProjectedAt": "2026-07-20T20:53:26.405Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -10,7 +10,7 @@
       ]
     },
     "phases/03-ui-request-bridge/03-ROADMAP.md": {
-      "sha": "1df7d72768863703",
+      "sha": "aef94e7ac227dc20",
       "entities": [
         "M003"
       ]
@@ -368,6 +368,20 @@
         "M002",
         "M002/S06",
         "M002/S06/T13"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-05-ASSESSMENT.md": {
+      "sha": "9f0282bf35012179",
+      "entities": [
+        "M003",
+        "M003/S05"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-06-PLAN.md": {
+      "sha": "db177fd3911706e5",
+      "entities": [
+        "M003",
+        "M003/S06"
       ]
     }
   },

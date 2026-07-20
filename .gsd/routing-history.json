@@ -7,7 +7,7 @@
         "fail": 0
       },
       "standard": {
-        "success": 24,
+        "success": 25,
         "fail": 0
       },
       "heavy": {
@@ -21,7 +21,7 @@
         "fail": 0
       },
       "standard": {
-        "success": 10,
+        "success": 11,
         "fail": 1
       },
       "heavy": {
@@ -31,7 +31,7 @@
     },
     "run-uat": {
       "light": {
-        "success": 10,
+        "success": 12,
         "fail": 0
       },
       "standard": {
@@ -50,7 +50,7 @@
       },
       "standard": {
         "success": 1,
-        "fail": 0
+        "fail": 1
       },
       "heavy": {
         "success": 0,
@@ -70,8 +70,36 @@
         "success": 0,
         "fail": 0
       }
+    },
+    "research-slice": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 1,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 0,
+        "fail": 0
+      }
+    },
+    "plan-slice": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 0,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 2,
+        "fail": 0
+      }
     }
   },
   "feedback": [],
-  "updatedAt": "2026-07-20T20:14:11.249Z"
+  "updatedAt": "2026-07-20T20:53:34.337Z"
 }

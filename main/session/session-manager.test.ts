@@ -50,7 +50,7 @@ function makeMockClient(opts?: { shutdownDelay?: number }): RpcClient {
 
 /** Return a vi.fn() createClient factory that resolves with the given client. */
 function makeFactory(client: RpcClient) {
-  return vi.fn<[{ cwd: string }], Promise<RpcClient>>().mockResolvedValue(client)
+  return vi.fn<(opts: { cwd: string }) => Promise<RpcClient>>().mockResolvedValue(client)
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────

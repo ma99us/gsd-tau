@@ -63,6 +63,7 @@ describe('registerHandlers', () => {
     abort: ReturnType<typeof vi.fn>
     get: ReturnType<typeof vi.fn>
     close: ReturnType<typeof vi.fn>
+    registerPreShutdownHook: ReturnType<typeof vi.fn>
   }
   let cleanup: () => void
 

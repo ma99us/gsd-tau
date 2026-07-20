@@ -222,10 +222,10 @@ test('(1) select — single-choice and multi-choice', async () => {
     await waitForIdle(page)
   } finally {
     await app.close()
-    cleanTmpDir(tmpDir)
   }
 
   const resp = readResponses(responseFile)
+  cleanTmpDir(tmpDir)
   // Single: { value: "Green" }
   expect(resp['sel-single']).toEqual({ value: 'Green' })
   // Multi: { values: [...] } containing Red and Blue (but not Green)
@@ -267,10 +267,10 @@ test('(2) confirm — yes and no', async () => {
     await waitForIdle(page)
   } finally {
     await app.close()
-    cleanTmpDir(tmpDir)
   }
 
   const resp = readResponses(responseFile)
+  cleanTmpDir(tmpDir)
   expect(resp['conf-yes']).toEqual({ confirmed: true })
   expect(resp['conf-no']).toEqual({ confirmed: false })
 })
@@ -315,10 +315,10 @@ test('(3) input — plain text and secure', async () => {
     await waitForIdle(page)
   } finally {
     await app.close()
-    cleanTmpDir(tmpDir)
   }
 
   const resp = readResponses(responseFile)
+  cleanTmpDir(tmpDir)
   expect(resp['inp-plain']).toEqual({ value: 'Alice' })
   expect(resp['inp-secure']).toEqual({ value: 's3cr3t' })
 })
@@ -357,10 +357,10 @@ test('(4) editor — submit (Ctrl+Enter) and cancel', async () => {
     await waitForIdle(page)
   } finally {
     await app.close()
-    cleanTmpDir(tmpDir)
   }
 
   const resp = readResponses(responseFile)
+  cleanTmpDir(tmpDir)
   expect(resp['ed-submit']).toEqual({ value: 'hello editor' })
   expect(resp['ed-cancel']).toEqual({ cancelled: true })
 })
@@ -409,11 +409,11 @@ test('(5) notify + setStatus — non-modal render, auto-acked by main process', 
     await expect(composer).not.toBeDisabled({ timeout: 10_000 })
   } finally {
     await app.close()
-    cleanTmpDir(tmpDir)
   }
 
   // handlers.ts auto-acked both requests with { value: '' }
   const resp = await waitForResponses(responseFile, ['notif-1', 'sts-1'], 5_000)
+  cleanTmpDir(tmpDir)
   expect(resp['notif-1']).toEqual({ value: '' })
   expect(resp['sts-1']).toEqual({ value: '' })
 })
@@ -461,10 +461,10 @@ test('(6) two simultaneous blockers — queue badge and in-order responses', asy
     await waitForIdle(page)
   } finally {
     await app.close()
-    cleanTmpDir(tmpDir)
   }
 
   const resp = readResponses(responseFile)
+  cleanTmpDir(tmpDir)
   expect(resp['q1']).toEqual({ confirmed: true })
   expect(resp['q2']).toEqual({ confirmed: false })
 })
