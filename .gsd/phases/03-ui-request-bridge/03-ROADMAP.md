@@ -21,7 +21,7 @@
 - [x] **S03: Modal Components** `risk:low` `depends:[S02]`
   > After this: All four modal types render and respond using a mock pi that emits each request type.
 
-- [ ] **S04: Non-modal Renderers and Modal Queue** `risk:low` `depends:[S03]`
+- [x] **S04: Non-modal Renderers and Modal Queue** `risk:low` `depends:[S03]`
   > After this: notify, setStatus, setWidget all render without a modal. Two simultaneous blockers show queue depth badge.
 
 - [ ] **S05: Shutdown Cancellation and Playwright Tests** `risk:medium` `depends:[S04]`

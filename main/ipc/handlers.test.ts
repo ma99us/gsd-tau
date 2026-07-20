@@ -93,6 +93,7 @@ describe('registerHandlers', () => {
       abort: vi.fn().mockResolvedValue(undefined),
       get: vi.fn(),
       close: vi.fn().mockResolvedValue(undefined),
+      registerPreShutdownHook: vi.fn(),
     }
 
     cleanup = registerHandlers(manager as never)

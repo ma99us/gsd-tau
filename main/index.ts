@@ -118,7 +118,10 @@ function createMainWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   app.setAppUserModelId('io.opengsd.gsd-tau')
-  registerHandlers(sessionManager, undefined, showBlockerToast)
+  const cleanupHandlers = registerHandlers(sessionManager, undefined, showBlockerToast)
+  // Remove IPC handlers when the app fully quits so Electron does not warn
+  // about lingering handlers after the main process tears down.
+  app.once('will-quit', () => cleanupHandlers())
   createMainWindow()
 
   app.on('activate', () => {

@@ -1,0 +1,120 @@
+{
+  "runId": "uat:M003:S04:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M003",
+  "sliceId": "S04",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-20T19:39:19.124Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "description": "Smoke test: npx vitest run renderer/state/modal-queue.test.ts — all 29 tests green",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "5504a295-b2bc-4ca6-be63-a34e43896624"
+        }
+      ],
+      "id": "UAT-SMOKE",
+      "mode": "runtime",
+      "notes": "29/29 tests passed in 473ms",
+      "result": "PASS"
+    },
+    {
+      "description": "All 4 S04 test files pass (modal-queue, StatusBar, InlineToast, FallbackModal)",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "3fe6a271-d4d4-41ba-b421-21cff4e72330"
+        }
+      ],
+      "id": "UAT-ALL-TESTS",
+      "mode": "runtime",
+      "notes": "4 test files, 65 tests, all passed in 578ms. Covers: non-modal auto-respond, StatusBar updates, toast stacking, modal queue depth, FallbackModal for unknown methods.",
+      "result": "PASS"
+    },
+    {
+      "description": "No TSC errors in renderer/ files; pre-existing main/ errors are not S04-introduced",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "7bbbf701-14fd-4605-b690-67e8e453718b"
+        }
+      ],
+      "id": "UAT-TSC",
+      "mode": "artifact",
+      "notes": "0 renderer/ TSC errors. 3 pre-existing errors in main/ only — not introduced by S04.",
+      "result": "PASS"
+    }
+  ],
+  "presentation": {
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "surface": "mcp",
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 4 S04 test files (65 tests total) pass; no renderer/ TSC errors; pre-existing main/ errors are not S04-introduced."
+}

@@ -336,6 +336,26 @@ export function registerHandlers(
         },
       })
 
+      // Register a pre-shutdown hook so every open blocker receives
+      // { cancelled: true } before the pi pipe is closed on app quit or
+      // tab close.  Runs inside SessionManager.close() before handle.stop().
+      manager.registerPreShutdownHook(id, async () => {
+        const allBlockers = tracker.getAll()
+        const requestIds = Object.keys(allBlockers)
+        if (requestIds.length === 0) return
+        console.log(
+          `[shutdown] session ${id}: cancelling ${requestIds.length} open blocker(s)`,
+        )
+        for (const requestId of requestIds) {
+          const t = Date.now()
+          handle.sendUIResponse(requestId, { cancelled: true })
+          tracker.remove(requestId)
+          console.log(
+            `[shutdown] session ${id}: cancelled blocker requestId=${requestId} elapsed=${Date.now() - t}ms`,
+          )
+        }
+      })
+
       return id
     },
   )

@@ -21,6 +21,12 @@ export type ClientFactory = (opts: CreateClientOptions) => Promise<RpcClient>
 interface ActiveSession {
   handle: SessionHandle
   client: RpcClient
+  /**
+   * Optional hook called immediately before close() stops the event pump.
+   * Registered by the IPC layer to cancel open UI-request blockers so pi
+   * does not hang waiting for a response after the session closes.
+   */
+  preShutdownHook?: () => Promise<void>
 }
 
 // ── SessionManager ────────────────────────────────────────────────────────────
@@ -115,6 +121,21 @@ export class SessionManager {
   }
 
   /**
+   * Register a callback invoked immediately before {@link close} stops the
+   * event pump.  Intended to cancel open UI-request blockers so pi does not
+   * hang waiting for responses after app quit or tab close.
+   *
+   * The hook runs with a 2 s hard timeout; any error is caught and logged.
+   * No-op when `id` is unknown (safe to call before or after session open).
+   */
+  registerPreShutdownHook(id: SessionId, hook: () => Promise<void>): void {
+    const entry = this._sessions.get(id)
+    if (entry) {
+      entry.preShutdownHook = hook
+    }
+  }
+
+  /**
    * Abort the current pi operation for an active session.
    *
    * @throws `Error` if no session with `id` is registered.
@@ -149,10 +170,29 @@ export class SessionManager {
     const closeStart = Date.now()
     console.log(`[SessionManager] closing session ${id}`)
 
-    // Step 1: stop the event pump and underlying client.stop() (via handle).
+    // Step 1: cancel open blockers before the pipe closes so pi can receive them.
+    if (entry.preShutdownHook) {
+      const hookStart = Date.now()
+      try {
+        await Promise.race([
+          entry.preShutdownHook(),
+          new Promise<void>((resolve) => setTimeout(resolve, 2_000)),
+        ])
+        console.log(
+          `[SessionManager] pre-shutdown hook done for session ${id} in ${Date.now() - hookStart}ms`,
+        )
+      } catch (err) {
+        console.warn(
+          `[SessionManager] pre-shutdown hook error for session ${id} after ${Date.now() - hookStart}ms:`,
+          err,
+        )
+      }
+    }
+
+    // Step 2: stop the event pump and underlying client.stop() (via handle).
     await handle.stop()
 
-    // Step 2: request a graceful pi shutdown, with a hard 3 s fallback.
+    // Step 3: request a graceful pi shutdown, with a hard 3 s fallback.
     const verdict = await Promise.race([
       client.shutdown().then(() => 'ok' as const),
       new Promise<'timeout'>((resolve) =>

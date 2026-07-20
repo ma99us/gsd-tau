@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T10",
+  "unitId": "M003/S05/T10",
+  "timestamp": 1784577003112,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm test -- shutdown-cancel passes. Manual: open a confirm modal, quit app, check pi logs show cancelled:true received.",
+      "exitCode": 1,
+      "durationMs": 3053,
+      "verdict": "fail"
+    }
+  ]
+}
