@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T12",
+  "unitId": "M002/S06/T12",
+  "timestamp": 1784562514173,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm test:e2e passes 10 consecutive runs. Get-Process gsd returns nothing after each run.",
+      "exitCode": 1,
+      "durationMs": 33128,
+      "verdict": "fail"
+    }
+  ]
+}

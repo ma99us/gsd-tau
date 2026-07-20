@@ -1,0 +1,5 @@
+{
+  "name": "smoke-fixture",
+  "version": "1.0.0",
+  "description": "Minimal fixture project for gsd-tau smoke tests"
+}

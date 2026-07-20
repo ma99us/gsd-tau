@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-20T15:28:27.134Z",
+  "lastProjectedAt": "2026-07-20T15:48:11.739Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "2066819c4ce54bc7",
@@ -57,7 +57,7 @@
       ]
     },
     "phases/02-session-manager-and-minimal-shell/02-06-PLAN.md": {
-      "sha": "7cc32f3a47b7312f",
+      "sha": "653ecd01f42870e3",
       "entities": [
         "M002",
         "M002/S06"
