@@ -74,6 +74,9 @@ export function useSession(): UseSessionReturn {
       case 'agent_end':
       case 'turn_end':
       case 'execution_complete': {
+        if (currentAssistantId.current !== null) {
+          dispatch({ type: 'TURN_COMPLETE', id: currentAssistantId.current })
+        }
         currentAssistantId.current = null
         break
       }

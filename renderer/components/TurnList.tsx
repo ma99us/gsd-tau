@@ -72,9 +72,14 @@ function TurnRow({ turn }: { turn: Turn }): JSX.Element {
   // Assistant turn
   return (
     <div className="flex max-w-[90%] flex-col gap-1.5">
-      {turn.items.length === 0 && (
+      {!turn.completed && turn.items.length === 0 && (
         <span className="animate-pulse select-none text-xs text-neutral-500">
           Thinking…
+        </span>
+      )}
+      {turn.completed && turn.items.length === 0 && (
+        <span className="select-none text-xs text-neutral-600 italic">
+          (empty response)
         </span>
       )}
       {turn.items.map(item => (

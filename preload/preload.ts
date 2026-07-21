@@ -349,7 +349,7 @@ export function createGsdApi(): GsdApi {
       const listener = (_ev: IpcRendererEvent, snapshot: QuotaSnapshot): void =>
         cb(snapshot)
       ipcRenderer.on(PUSH.QUOTA_UPDATE, listener)
-      return (): void => ipcRenderer.off(PUSH.QUOTA_UPDATE, listener)
+      return (): void => { ipcRenderer.off(PUSH.QUOTA_UPDATE, listener) }
     },
   }
 }

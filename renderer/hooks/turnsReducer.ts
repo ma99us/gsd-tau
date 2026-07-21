@@ -38,6 +38,8 @@ export interface AssistantTurn {
   id: string
   kind: 'assistant'
   items: AssistantItem[]
+  /** True once turn_end or execution_complete fired — stops the Thinking… spinner even for empty responses. */
+  completed: boolean
 }
 
 export type Turn = UserTurn | AssistantTurn
@@ -48,6 +50,7 @@ export type TurnsAction =
   | { type: 'RESET' }
   | { type: 'USER_TURN'; id: string; text: string }
   | { type: 'AGENT_START'; id: string }
+  | { type: 'TURN_COMPLETE'; id: string }
   | {
       type: 'TEXT_DELTA'
       /** ID of the assistant turn currently being built (null = no turn started yet). */
@@ -79,7 +82,14 @@ export function turnsReducer(state: Turn[], action: TurnsAction): Turn[] {
       return [...state, { id: action.id, kind: 'user', text: action.text }]
 
     case 'AGENT_START':
-      return [...state, { id: action.id, kind: 'assistant', items: [] }]
+      return [...state, { id: action.id, kind: 'assistant', items: [], completed: false }]
+
+    case 'TURN_COMPLETE':
+      return state.map(turn =>
+        turn.id === action.id && turn.kind === 'assistant'
+          ? { ...turn, completed: true }
+          : turn
+      )
 
     case 'TEXT_DELTA': {
       const { currentAssistantId, delta, newTurnId, newItemId } = action
@@ -91,6 +101,7 @@ export function turnsReducer(state: Turn[], action: TurnsAction): Turn[] {
           {
             id: newTurnId,
             kind: 'assistant',
+            completed: false,
             items: [{ kind: 'text', id: newItemId, content: delta }],
           },
         ]
@@ -121,7 +132,7 @@ export function turnsReducer(state: Turn[], action: TurnsAction): Turn[] {
       const { currentAssistantId, item, newTurnId } = action
 
       if (!currentAssistantId) {
-        return [...state, { id: newTurnId, kind: 'assistant', items: [item] }]
+        return [...state, { id: newTurnId, kind: 'assistant', completed: false, items: [item] }]
       }
 
       return state.map(turn => {

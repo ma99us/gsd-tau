@@ -24,7 +24,7 @@
 - [x] **S04: Context window gauge with compact button** `risk:medium` `depends:[S01]`
   > After this: Header shows 'Context ██████░░░░ 62%'. Click gauge; popover shows input/output/cache breakdown and Compact button. At 85%+ gauge turns red.
 
-- [ ] **S05: Copilot quota service and header widget** `risk:high` `depends:[S01]`
+- [x] **S05: Copilot quota service and header widget** `risk:high` `depends:[S01]`
   > After this: Header shows 'Copilot ████████░░ 78%  ✅'. Click widget; popover shows used/remaining/reset date, burn rates, projection, and last-updated time. Without auth shows Connect GitHub button.
 
 ## Boundary Map

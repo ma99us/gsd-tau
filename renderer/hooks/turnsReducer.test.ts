@@ -23,7 +23,7 @@ describe('turnsReducer', () => {
     })
 
     it('appends after existing turns', () => {
-      const state: Turn[] = [{ id: 'a1', kind: 'assistant', items: [] }]
+      const state: Turn[] = [{ id: 'a1', kind: 'assistant', items: [], completed: false }]
       const result = turnsReducer(state, { type: 'USER_TURN', id: 'u1', text: 'world' })
       expect(result).toHaveLength(2)
       expect(result[1]).toEqual({ id: 'u1', kind: 'user', text: 'world' })
@@ -40,7 +40,7 @@ describe('turnsReducer', () => {
   describe('AGENT_START', () => {
     it('appends an empty assistant turn', () => {
       const result = turnsReducer([], { type: 'AGENT_START', id: 'a1' })
-      expect(result).toEqual([{ id: 'a1', kind: 'assistant', items: [] }])
+      expect(result).toEqual([{ id: 'a1', kind: 'assistant', items: [], completed: false }])
     })
   })
 
@@ -58,6 +58,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [{ kind: 'text', id: 'i1', content: 'Hello' }],
         },
       ])
@@ -68,6 +69,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [{ kind: 'text', id: 'i1', content: 'Hel' }],
         },
       ]
@@ -90,6 +92,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [{ kind: 'text', id: 'i1', content: 'Hi' }],
         },
       ]
@@ -112,6 +115,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [
             {
               kind: 'tool',
@@ -141,7 +145,7 @@ describe('turnsReducer', () => {
     it('does not modify a turn whose id does not match', () => {
       const state: Turn[] = [
         { id: 'u1', kind: 'user', text: 'hi' },
-        { id: 'a1', kind: 'assistant', items: [] },
+        { id: 'a1', kind: 'assistant', items: [], completed: false },
       ]
       const result = turnsReducer(state, {
         type: 'TEXT_DELTA',
@@ -173,7 +177,7 @@ describe('turnsReducer', () => {
         item: toolItem,
         newTurnId: 'a1',
       })
-      expect(result).toEqual([{ id: 'a1', kind: 'assistant', items: [toolItem] }])
+      expect(result).toEqual([{ id: 'a1', kind: 'assistant', completed: false, items: [toolItem] }])
     })
 
     it('appends a tool item to the current assistant turn', () => {
@@ -181,6 +185,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [{ kind: 'text', id: 'i1', content: 'Calling…' }],
         },
       ]
@@ -205,6 +210,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [
             { kind: 'tool', id: 'tool1', toolUseId: 'tool1', name: 'read', input: {}, pending: true },
           ],
@@ -231,6 +237,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [
             { kind: 'tool', id: 'tool1', toolUseId: 'tool1', name: 'read', input: {}, pending: true },
             { kind: 'tool', id: 'tool2', toolUseId: 'tool2', name: 'write', input: {}, pending: true },
@@ -257,6 +264,7 @@ describe('turnsReducer', () => {
         {
           id: 'a1',
           kind: 'assistant',
+          completed: false,
           items: [
             { kind: 'tool', id: 'tool1', toolUseId: 'tool1', name: 'read', input: {}, pending: true },
           ],
@@ -265,6 +273,7 @@ describe('turnsReducer', () => {
         {
           id: 'a2',
           kind: 'assistant',
+          completed: false,
           items: [],
         },
       ]
