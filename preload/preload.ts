@@ -13,6 +13,8 @@ import type {
   SessionRecord,
   RestoreResult,
   MissingPathInfo,
+  RpcSessionState,
+  SessionStats,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -38,6 +40,16 @@ const IPC = {
    * Mirrored from main/ipc/handlers.ts IPC.SAVE_WINDOW_ACTIVE_TAB.
    */
   SAVE_WINDOW_ACTIVE_TAB: 'saveWindowActiveTab',
+  /**
+   * Fetch the RPC session state (model info, thinking level, streaming status).
+   * Mirrored from main/ipc/handlers.ts IPC.GET_RPC_STATE.
+   */
+  GET_RPC_STATE: 'getRpcState',
+  /**
+   * Fetch cumulative session statistics (cost, token counts, message counts).
+   * Mirrored from main/ipc/handlers.ts IPC.GET_SESSION_STATS.
+   */
+  GET_SESSION_STATS: 'getSessionStats',
 } as const
 
 const PUSH = {
@@ -135,6 +147,12 @@ export function createGsdApi(): GsdApi {
      */
     saveWindowActiveTab: (cwd: string): Promise<void> =>
       ipcRenderer.invoke(IPC.SAVE_WINDOW_ACTIVE_TAB, cwd),
+
+    getRpcState: (sessionId: SessionId): Promise<RpcSessionState | null> =>
+      ipcRenderer.invoke(IPC.GET_RPC_STATE, sessionId),
+
+    getSessionStats: (sessionId: SessionId): Promise<SessionStats | null> =>
+      ipcRenderer.invoke(IPC.GET_SESSION_STATS, sessionId),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 

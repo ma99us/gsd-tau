@@ -47,6 +47,16 @@ export const IPC = {
    * by session-manager.open() on every launch.
    */
   SAVE_WINDOW_ACTIVE_TAB: 'saveWindowActiveTab',
+  /**
+   * Fetch the RPC session state (active model, thinking level, streaming status).
+   * Returns `null` on unknown session or RPC error.
+   */
+  GET_RPC_STATE: 'getRpcState',
+  /**
+   * Fetch cumulative session statistics (cost, token counts, message counts).
+   * Returns `null` on unknown session or RPC error.
+   */
+  GET_SESSION_STATS: 'getSessionStats',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -538,6 +548,37 @@ export function registerHandlers(
     },
   )
 
+  // ── getRpcState ───────────────────────────────────────────────────────────────
+  //
+  // Returns null rather than throwing so the renderer can handle RPC errors
+  // gracefully (e.g. session closed while the request was in-flight).
+  ipcMain.handle(
+    IPC.GET_RPC_STATE,
+    async (_event, sessionId: SessionId) => {
+      try {
+        return await manager.getRpcState(sessionId)
+      } catch (err) {
+        console.warn(`[handlers] getRpcState failed for session ${sessionId}:`, err)
+        return null
+      }
+    },
+  )
+
+  // ── getSessionStats ──────────────────────────────────────────────────────────
+  //
+  // Same null-on-error pattern as getRpcState.
+  ipcMain.handle(
+    IPC.GET_SESSION_STATS,
+    async (_event, sessionId: SessionId) => {
+      try {
+        return await manager.getSessionStats(sessionId)
+      } catch (err) {
+        console.warn(`[handlers] getSessionStats failed for session ${sessionId}:`, err)
+        return null
+      }
+    },
+  )
+
   // ── listSessions ─────────────────────────────────────────────────────────────
   ipcMain.handle(
     IPC.LIST_SESSIONS,
@@ -643,6 +684,8 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.LIST_MISSING_PATHS)
     ipcMain.removeHandler(IPC.REASSIGN_SESSION_CWD)
     ipcMain.removeHandler(IPC.SAVE_WINDOW_ACTIVE_TAB)
+    ipcMain.removeHandler(IPC.GET_RPC_STATE)
+    ipcMain.removeHandler(IPC.GET_SESSION_STATS)
 
     for (const [, entry] of sessions) {
       entry.cleanup()
