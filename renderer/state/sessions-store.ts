@@ -91,6 +91,10 @@ export interface SessionsStore {
   reorderTabs(ids: SessionId[]): void
   /** Rename a tab: calls IPC and updates the `displayName` in the store. */
   renameTab(id: SessionId, name: string): Promise<void>
+  /** Send a prompt to the session. Thin wrapper over gsd().prompt(). */
+  send(id: SessionId, text: string): Promise<void>
+  /** Abort the currently running turn. Thin wrapper over gsd().abort(). */
+  abort(id: SessionId): Promise<void>
 
   // ── Initialisation ───────────────────────────────────────────────────────────
 
@@ -253,6 +257,14 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
         if (!tab) return {}
         return { sessions: { ...s.sessions, [id]: { ...tab, displayName: name } } }
       })
+    },
+
+    send: async (id: SessionId, text: string): Promise<void> => {
+      await gsd().prompt(id, text)
+    },
+
+    abort: async (id: SessionId): Promise<void> => {
+      await gsd().abort(id)
     },
 
     init: async (): Promise<Unsubscribe> => {

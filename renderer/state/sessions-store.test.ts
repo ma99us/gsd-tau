@@ -70,6 +70,8 @@ function makeGsdMock(overrides: Record<string, unknown> = {}) {
     openProject: vi.fn().mockResolvedValue('new-id'),
     closeSession: vi.fn().mockResolvedValue(undefined),
     renameSession: vi.fn().mockResolvedValue(undefined),
+    prompt: vi.fn().mockResolvedValue(undefined),
+    abort: vi.fn().mockResolvedValue(undefined),
     onStateChange: vi.fn().mockImplementation(
       (id: SessionId, cb: (state: SessionState) => void): Unsubscribe => {
         stateChangeCbs[id] = cb
@@ -783,6 +785,72 @@ describe('useSessionsStore', () => {
 
       expect(gsd.onStateChange).toHaveBeenCalledWith('new-sess', expect.any(Function))
       cleanup()
+    })
+  })
+
+  // ── send ──────────────────────────────────────────────────────────────────────
+
+  describe('send()', () => {
+    it('calls gsd().prompt() with the session id and text', async () => {
+      const { gsd } = makeGsdMock()
+      vi.stubGlobal('gsd', gsd)
+
+      await useSessionsStore.getState().send('sess-abc', 'hello world')
+
+      expect(gsd.prompt).toHaveBeenCalledWith('sess-abc', 'hello world')
+    })
+
+    it('does not call prompt for any other session id', async () => {
+      const { gsd } = makeGsdMock()
+      vi.stubGlobal('gsd', gsd)
+
+      await useSessionsStore.getState().send('only-this', 'text')
+
+      expect(gsd.prompt).toHaveBeenCalledTimes(1)
+    })
+
+    it('propagates errors thrown by gsd().prompt()', async () => {
+      const { gsd } = makeGsdMock({
+        prompt: vi.fn().mockRejectedValue(new Error('IPC error')),
+      })
+      vi.stubGlobal('gsd', gsd)
+
+      await expect(
+        useSessionsStore.getState().send('sess-x', 'text'),
+      ).rejects.toThrow('IPC error')
+    })
+  })
+
+  // ── abort ─────────────────────────────────────────────────────────────────────
+
+  describe('abort()', () => {
+    it('calls gsd().abort() with the session id', async () => {
+      const { gsd } = makeGsdMock()
+      vi.stubGlobal('gsd', gsd)
+
+      await useSessionsStore.getState().abort('sess-abc')
+
+      expect(gsd.abort).toHaveBeenCalledWith('sess-abc')
+    })
+
+    it('does not call abort for any other session id', async () => {
+      const { gsd } = makeGsdMock()
+      vi.stubGlobal('gsd', gsd)
+
+      await useSessionsStore.getState().abort('only-this')
+
+      expect(gsd.abort).toHaveBeenCalledTimes(1)
+    })
+
+    it('propagates errors thrown by gsd().abort()', async () => {
+      const { gsd } = makeGsdMock({
+        abort: vi.fn().mockRejectedValue(new Error('abort failed')),
+      })
+      vi.stubGlobal('gsd', gsd)
+
+      await expect(
+        useSessionsStore.getState().abort('sess-x'),
+      ).rejects.toThrow('abort failed')
     })
   })
 })
