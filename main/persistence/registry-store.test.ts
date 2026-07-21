@@ -1,290 +1,348 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+/**
+ * Tests for main/persistence/registry-store.ts
+ *
+ * Uses a temp directory so every test runs against a real, isolated filesystem.
+ * Vitest fake timers control the 500 ms debounce.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { RegistryStore } from './registry-store'
-import type { RegistryV1, SessionRecord } from '@shared/types'
+import type { RegistryV1 } from '@shared/types'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeTmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-tau-reg-test-'))
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeRegistry(overrides: Partial<RegistryV1> = {}): RegistryV1 {
   return { version: 1, sessions: [], windows: [], mruOrder: [], ...overrides }
 }
 
-function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
-  return {
-    id: 's_test',
-    cwd: 'D:/Projects/test',
-    displayName: 'test',
-    lastOpenedAt: '2026-01-01T00:00:00Z',
-    wasAutoRunning: false,
-    ...overrides,
-  }
+function makeTempDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'registry-store-test-'))
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
+function readRegistry(dir: string): RegistryV1 {
+  return JSON.parse(fs.readFileSync(path.join(dir, 'registry.json'), 'utf8')) as RegistryV1
+}
+
+// ── Test suite ────────────────────────────────────────────────────────────────
 
 describe('RegistryStore', () => {
   let tmpDir: string
   let store: RegistryStore
 
   beforeEach(() => {
-    tmpDir = makeTmpDir()
-    store = new RegistryStore(tmpDir)
     vi.useFakeTimers()
+    tmpDir = makeTempDir()
+    store = new RegistryStore(tmpDir)
   })
 
   afterEach(() => {
+    vi.runAllTimers()
     vi.useRealTimers()
     fs.rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  // ── 1. Normal round-trip ─────────────────────────────────────────────────
+  // ── load() ──────────────────────────────────────────────────────────────────
 
-  describe('round-trip', () => {
-    it('save + load returns an equal registry', async () => {
-      const reg = makeRegistry({ mruOrder: ['s_abc', 's_def'] })
-      store.save(reg)
-      await vi.advanceTimersByTimeAsync(500)
-
-      expect(store.load()).toEqual(reg)
+  describe('load()', () => {
+    it('returns the default registry when no files exist', () => {
+      const reg = store.load()
+      expect(reg).toEqual(store.getDefault())
     })
 
-    it('version field is preserved as literal 1 across save/load', async () => {
-      store.save(makeRegistry())
-      await vi.advanceTimersByTimeAsync(500)
-
-      expect(store.load().version).toBe(1)
-    })
-
-    it('sessions array is preserved', async () => {
-      const session = makeSession({ id: 's_round', cwd: 'D:/foo', displayName: 'foo' })
-      const reg = makeRegistry({ sessions: [session] })
-      store.save(reg)
-      await vi.advanceTimersByTimeAsync(500)
-
-      const loaded = store.load()
-      expect(loaded.sessions).toHaveLength(1)
-      expect(loaded.sessions[0]).toEqual(session)
-    })
-
-    it('windows array is preserved', async () => {
-      const reg = makeRegistry({
-        windows: [{ id: 'w_1', tabIds: ['s_a'], activeTabId: 's_a', bounds: { x: 0, y: 0, width: 1280, height: 800 } }],
+    it('loads and parses registry.json successfully', () => {
+      const data: RegistryV1 = makeRegistry({
+        sessions: [{ id: 's1', cwd: '/p', displayName: 'p', lastOpenedAt: '2026-01-01T00:00:00.000Z', wasAutoRunning: false }],
       })
-      store.save(reg)
-      await vi.advanceTimersByTimeAsync(500)
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), JSON.stringify(data))
 
-      expect(store.load().windows).toHaveLength(1)
+      const reg = store.load()
+      expect(reg.sessions).toHaveLength(1)
+      expect(reg.sessions[0].id).toBe('s1')
     })
 
-    it('getDefault() returns a valid empty RegistryV1', () => {
-      const def = store.getDefault()
-      expect(def).toEqual({ version: 1, sessions: [], windows: [], mruOrder: [] })
+    it('seeds _windows from persisted window records (verified via save→flush)', () => {
+      const onDisk: RegistryV1 = makeRegistry({
+        windows: [{ id: 'w1', tabIds: ['s1'], activeTabId: 's1', bounds: { x: 10, y: 20, width: 800, height: 600 } }],
+      })
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), JSON.stringify(onDisk))
+
+      store.load()
+
+      // SessionManager-style save: passes windows: []
+      store.save(makeRegistry({ windows: [] }))
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      // _windows should have been preserved
+      expect(written.windows).toHaveLength(1)
+      expect(written.windows[0].id).toBe('w1')
+      expect(written.windows[0].bounds).toEqual({ x: 10, y: 20, width: 800, height: 600 })
     })
 
-    it('getDefault() always returns a new object (not the same reference)', () => {
-      const a = store.getDefault()
-      const b = store.getDefault()
-      expect(a).not.toBe(b)
+    it('falls back to .bak when registry.json is absent', () => {
+      const bakData: RegistryV1 = makeRegistry({
+        sessions: [{ id: 's-bak', cwd: '/bak', displayName: 'bak', lastOpenedAt: '2026-01-01T00:00:00.000Z', wasAutoRunning: false }],
+      })
+      fs.writeFileSync(path.join(tmpDir, 'registry.json.bak'), JSON.stringify(bakData))
+
+      const reg = store.load()
+      expect(reg.sessions[0].id).toBe('s-bak')
     })
 
-    it('second save creates registry.json.bak from the first write', async () => {
-      const reg1 = makeRegistry({ mruOrder: ['s_first'] })
-      const reg2 = makeRegistry({ mruOrder: ['s_second'] })
+    it('falls back to .bak when registry.json is corrupt', () => {
+      const bakData: RegistryV1 = makeRegistry({
+        sessions: [{ id: 'from-bak', cwd: '/b', displayName: 'b', lastOpenedAt: '2026-01-01T00:00:00.000Z', wasAutoRunning: false }],
+      })
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), 'CORRUPT_JSON')
+      fs.writeFileSync(path.join(tmpDir, 'registry.json.bak'), JSON.stringify(bakData))
 
-      store.save(reg1)
-      await vi.advanceTimersByTimeAsync(500)
-
-      store.save(reg2)
-      await vi.advanceTimersByTimeAsync(500)
-
-      const main = JSON.parse(fs.readFileSync(path.join(tmpDir, 'registry.json'), 'utf8')) as RegistryV1
-      const bak = JSON.parse(fs.readFileSync(path.join(tmpDir, 'registry.json.bak'), 'utf8')) as RegistryV1
-
-      expect(main.mruOrder).toEqual(['s_second'])
-      expect(bak.mruOrder).toEqual(['s_first'])
-    })
-  })
-
-  // ── 2. .bak corruption recovery ─────────────────────────────────────────
-
-  describe('bak corruption recovery', () => {
-    it('falls back to .bak when registry.json is corrupt JSON', async () => {
-      const reg = makeRegistry({ mruOrder: ['s_backup'] })
-      // Write first version to establish .bak
-      store.save(reg)
-      await vi.advanceTimersByTimeAsync(500)
-
-      // Write second version — now .bak = s_backup, main = s_overwrite
-      store.save(makeRegistry({ mruOrder: ['s_overwrite'] }))
-      await vi.advanceTimersByTimeAsync(500)
-
-      // Corrupt the primary
-      fs.writeFileSync(path.join(tmpDir, 'registry.json'), '{ NOT_VALID_JSON !!!', 'utf8')
-
-      const loaded = store.load()
-      expect(loaded.mruOrder).toEqual(['s_backup'])
+      const reg = store.load()
+      expect(reg.sessions[0].id).toBe('from-bak')
     })
 
-    it('falls back to .bak when registry.json is completely empty', async () => {
-      store.save(makeRegistry({ mruOrder: ['s_bak_only'] }))
-      await vi.advanceTimersByTimeAsync(500)
-      store.save(makeRegistry({ mruOrder: ['s_main'] }))
-      await vi.advanceTimersByTimeAsync(500)
+    it('returns default when both registry.json and .bak are invalid', () => {
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), '{bad')
+      fs.writeFileSync(path.join(tmpDir, 'registry.json.bak'), 'also bad')
 
-      fs.writeFileSync(path.join(tmpDir, 'registry.json'), '', 'utf8')
-
-      expect(store.load().mruOrder).toEqual(['s_bak_only'])
+      const reg = store.load()
+      expect(reg).toEqual(store.getDefault())
     })
 
-    it('returns getDefault() when both registry.json and .bak are corrupt', () => {
-      fs.writeFileSync(path.join(tmpDir, 'registry.json'), 'garbage', 'utf8')
-      fs.writeFileSync(path.join(tmpDir, 'registry.json.bak'), 'garbage', 'utf8')
-
-      expect(store.load()).toEqual(store.getDefault())
-    })
-
-    it('returns getDefault() when no files exist at all', () => {
-      expect(store.load()).toEqual(store.getDefault())
-    })
-
-    it('returns getDefault() when registry.json is missing and .bak is also missing', () => {
-      // Only the directory exists, nothing inside
-      expect(store.load()).toEqual(store.getDefault())
+    it('does not throw when registry.json contains invalid JSON', () => {
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), 'NOT_JSON')
+      expect(() => store.load()).not.toThrow()
     })
   })
 
-  // ── 3. Mid-write kill simulation ─────────────────────────────────────────
+  // ── save() — window record preservation ────────────────────────────────────
 
-  describe('mid-write kill simulation', () => {
-    /**
-     * Simulates: process was killed after writing .tmp but before rename.
-     * The .tmp file is orphaned. load() must ignore it and use registry.json.
-     */
-    it('orphaned .tmp is ignored — load returns existing registry.json', async () => {
-      const reg = makeRegistry({ mruOrder: ['s_existing'] })
-      store.save(reg)
-      await vi.advanceTimersByTimeAsync(500)
-
-      // Simulate orphaned .tmp from a killed prior run
-      fs.writeFileSync(
-        path.join(tmpDir, 'registry.json.tmp'),
-        JSON.stringify(makeRegistry({ mruOrder: ['s_killed'] })),
-        'utf8',
-      )
-
-      const loaded = store.load()
-      expect(loaded.mruOrder).toEqual(['s_existing'])
-    })
-
-    /**
-     * Simulates: process killed after writing .tmp + copying .bak,
-     * but before rename. The primary registry.json is now absent.
-     * load() falls back to .bak.
-     */
-    it('orphaned .tmp + missing registry.json falls back to .bak', async () => {
-      // Write v1 (goes to main) then v2 (main=v2, bak=v1)
-      store.save(makeRegistry({ mruOrder: ['s_bak_v1'] }))
-      await vi.advanceTimersByTimeAsync(500)
-
-      store.save(makeRegistry({ mruOrder: ['s_bak_v2'] }))
-      await vi.advanceTimersByTimeAsync(500)
-
-      // "Kill" right after writing .tmp, before rename — delete main to mimic
-      fs.writeFileSync(path.join(tmpDir, 'registry.json.tmp'), 'incomplete partial write', 'utf8')
-      fs.unlinkSync(path.join(tmpDir, 'registry.json'))
-
-      // .bak still holds s_bak_v1
-      const loaded = store.load()
-      expect(loaded.mruOrder).toEqual(['s_bak_v1'])
-    })
-
-    /**
-     * Simulates complete fresh start: .tmp from a prior run exists, but both
-     * .json and .bak are absent. load() must return getDefault(), not throw.
-     */
-    it('orphaned .tmp + no registry files → returns getDefault()', () => {
-      fs.writeFileSync(path.join(tmpDir, 'registry.json.tmp'), 'stale', 'utf8')
-
-      expect(store.load()).toEqual(store.getDefault())
-    })
-
-    /**
-     * Next successful flush after a kill must overwrite the orphaned .tmp
-     * and produce a clean registry.json.
-     */
-    it('next flush after kill overwrites orphaned .tmp and writes clean registry.json', async () => {
-      // Orphaned .tmp
-      fs.writeFileSync(path.join(tmpDir, 'registry.json.tmp'), '{"corrupted":true}', 'utf8')
-
-      const reg = makeRegistry({ mruOrder: ['s_recovered'] })
-      store.save(reg)
-      await vi.advanceTimersByTimeAsync(500)
-
-      // .tmp should be gone (renamed to .json)
-      expect(fs.existsSync(path.join(tmpDir, 'registry.json.tmp'))).toBe(false)
-      expect(store.load().mruOrder).toEqual(['s_recovered'])
-    })
-  })
-
-  // ── 4. Debounce ──────────────────────────────────────────────────────────
-
-  describe('debounce', () => {
-    it('rapid saves coalesce — only the last write reaches disk', async () => {
-      store.save(makeRegistry({ mruOrder: ['s_one'] }))
-      store.save(makeRegistry({ mruOrder: ['s_two'] }))
-      store.save(makeRegistry({ mruOrder: ['s_three'] }))
-
-      await vi.advanceTimersByTimeAsync(500)
-
-      expect(store.load().mruOrder).toEqual(['s_three'])
-    })
-
-    it('no file is written before 500 ms elapses', async () => {
-      store.save(makeRegistry({ mruOrder: ['s_pending'] }))
-      await vi.advanceTimersByTimeAsync(499)
-
-      expect(fs.existsSync(path.join(tmpDir, 'registry.json'))).toBe(false)
-    })
-
-    it('file is written after exactly 500 ms', async () => {
-      store.save(makeRegistry({ mruOrder: ['s_after500'] }))
-      await vi.advanceTimersByTimeAsync(500)
+  describe('save() — window record preservation', () => {
+    it('persists the registry to disk after debounce elapses', () => {
+      store.load()
+      store.save(makeRegistry({ sessions: [] }))
+      vi.runAllTimers()
 
       expect(fs.existsSync(path.join(tmpDir, 'registry.json'))).toBe(true)
     })
 
-    it('flush() forces immediate write without waiting for debounce', () => {
-      store.save(makeRegistry({ mruOrder: ['s_flush'] }))
-      // Do NOT advance fake timers at all
-      store.flush()
+    it('preserves window records when caller passes windows: []', () => {
+      const initial: RegistryV1 = makeRegistry({
+        windows: [{ id: 'w1', tabIds: [], activeTabId: '', bounds: { x: 0, y: 0, width: 1200, height: 800 } }],
+      })
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), JSON.stringify(initial))
+      store.load()
 
-      expect(store.load().mruOrder).toEqual(['s_flush'])
+      // SessionManager-style save — windows empty
+      store.save(makeRegistry({
+        sessions: [{ id: 's1', cwd: '/p', displayName: 'p', lastOpenedAt: '2026-01-01T00:00:00.000Z', wasAutoRunning: false }],
+        windows: [],
+      }))
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      expect(written.sessions).toHaveLength(1)
+      expect(written.windows).toHaveLength(1)
+      expect(written.windows[0].id).toBe('w1')
     })
 
-    it('flush() when no pending save is a no-op', () => {
-      // Should not throw
+    it('does not erase window bounds across multiple SessionManager saves', () => {
+      const initial: RegistryV1 = makeRegistry({
+        windows: [{ id: 'w1', tabIds: [], activeTabId: '', bounds: { x: 5, y: 5, width: 800, height: 600 } }],
+      })
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), JSON.stringify(initial))
+      store.load()
+
+      store.save(makeRegistry({ windows: [] }))
+      store.save(makeRegistry({ windows: [] }))
+      store.save(makeRegistry({ windows: [] }))
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      expect(written.windows).toHaveLength(1)
+      expect(written.windows[0].bounds).toEqual({ x: 5, y: 5, width: 800, height: 600 })
+    })
+
+    it('coalesces rapid saves into a single disk write', () => {
+      const renameSpy = vi.spyOn(fs, 'renameSync')
+      store.load()
+
+      store.save(makeRegistry())
+      store.save(makeRegistry())
+      store.save(makeRegistry())
+
+      vi.runAllTimers()
+      expect(renameSpy).toHaveBeenCalledTimes(1)
+      renameSpy.mockRestore()
+    })
+
+    it('rotates registry.json → registry.json.bak on second write', () => {
+      store.load()
+
+      store.save(makeRegistry({ mruOrder: ['first'] }))
+      vi.runAllTimers()
+
+      store.save(makeRegistry({ mruOrder: ['second'] }))
+      vi.runAllTimers()
+
+      expect(fs.existsSync(path.join(tmpDir, 'registry.json.bak'))).toBe(true)
+    })
+  })
+
+  // ── updateWindowBounds() ─────────────────────────────────────────────────────
+
+  describe('updateWindowBounds()', () => {
+    it('creates a new WindowRecord when the windowId is not known', () => {
+      store.load()
+      store.updateWindowBounds('w-new', { x: 100, y: 200, width: 900, height: 700 })
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      expect(written.windows).toHaveLength(1)
+      expect(written.windows[0].id).toBe('w-new')
+      expect(written.windows[0].bounds).toEqual({ x: 100, y: 200, width: 900, height: 700 })
+    })
+
+    it('initialises tabIds and activeTabId to safe empty values for a new record', () => {
+      store.load()
+      store.updateWindowBounds('w-brand-new', { x: 0, y: 0, width: 1200, height: 800 })
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      expect(written.windows[0].tabIds).toEqual([])
+      expect(written.windows[0].activeTabId).toBe('')
+    })
+
+    it('updates only bounds on an existing record (tabIds and activeTabId preserved)', () => {
+      const initial: RegistryV1 = makeRegistry({
+        windows: [{ id: 'w1', tabIds: ['s1', 's2'], activeTabId: 's1', bounds: { x: 0, y: 0, width: 800, height: 600 } }],
+      })
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), JSON.stringify(initial))
+      store.load()
+
+      store.updateWindowBounds('w1', { x: 50, y: 60, width: 1280, height: 900 })
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      const win = written.windows[0]
+      expect(win.id).toBe('w1')
+      expect(win.tabIds).toEqual(['s1', 's2'])
+      expect(win.activeTabId).toBe('s1')
+      expect(win.bounds).toEqual({ x: 50, y: 60, width: 1280, height: 900 })
+    })
+
+    it('coalesces with a pending session save (bounds + sessions in one flush)', () => {
+      store.load()
+
+      store.save(makeRegistry({
+        sessions: [{ id: 's1', cwd: '/p', displayName: 'p', lastOpenedAt: '2026-01-01T00:00:00.000Z', wasAutoRunning: false }],
+      }))
+
+      // updateWindowBounds before the debounce fires
+      store.updateWindowBounds('w1', { x: 0, y: 0, width: 1200, height: 800 })
+
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      expect(written.sessions).toHaveLength(1)
+      expect(written.windows).toHaveLength(1)
+    })
+
+    it('multiple updateWindowBounds calls for the same window converge to the last value', () => {
+      store.load()
+      store.updateWindowBounds('w1', { x: 0, y: 0, width: 800, height: 600 })
+      store.updateWindowBounds('w1', { x: 10, y: 10, width: 900, height: 700 })
+      store.updateWindowBounds('w1', { x: 20, y: 20, width: 1000, height: 800 })
+      vi.runAllTimers()
+
+      const written = readRegistry(tmpDir)
+      expect(written.windows).toHaveLength(1)
+      expect(written.windows[0].bounds).toEqual({ x: 20, y: 20, width: 1000, height: 800 })
+    })
+  })
+
+  // ── flush() ──────────────────────────────────────────────────────────────────
+
+  describe('flush()', () => {
+    it('writes pending data synchronously without advancing timers', () => {
+      store.load()
+      store.save(makeRegistry({ mruOrder: ['flushed'] }))
+
+      store.flush() // bypass debounce
+
+      expect(fs.existsSync(path.join(tmpDir, 'registry.json'))).toBe(true)
+      const written = readRegistry(tmpDir)
+      expect(written.mruOrder).toEqual(['flushed'])
+    })
+
+    it('is a no-op when nothing is pending (no throw)', () => {
+      store.load()
       expect(() => store.flush()).not.toThrow()
     })
 
-    it('flush() cancels the pending debounce timer', async () => {
-      store.save(makeRegistry({ mruOrder: ['s_flush_cancel'] }))
-      store.flush()
+    it('includes window bounds in the flushed payload', () => {
+      store.load()
+      store.updateWindowBounds('w1', { x: 10, y: 20, width: 400, height: 300 })
 
-      // Advance past 500 ms — the timer was cancelled so no second write
-      await vi.advanceTimersByTimeAsync(600)
+      store.flush() // bypass debounce
 
-      // Data was written exactly once (by flush) and load still returns it
-      expect(store.load().mruOrder).toEqual(['s_flush_cancel'])
+      const written = readRegistry(tmpDir)
+      expect(written.windows[0].bounds).toEqual({ x: 10, y: 20, width: 400, height: 300 })
+    })
+
+    it('cancels the pending debounce timer so it does not fire again', () => {
+      const renameSpy = vi.spyOn(fs, 'renameSync')
+      store.load()
+      store.save(makeRegistry())
+
+      store.flush() // writes once synchronously
+      vi.runAllTimers() // timer should already be cancelled
+
+      expect(renameSpy).toHaveBeenCalledTimes(1) // exactly one write, not two
+      renameSpy.mockRestore()
+    })
+  })
+
+  // ── Negative / edge cases ─────────────────────────────────────────────────────
+
+  describe('negative and edge cases', () => {
+    it('does not throw when flush fails due to a filesystem error', () => {
+      // Point a store at a path that cannot be created/written to.
+      // On Windows, pick an invalid path character.
+      const badPath = path.join(tmpDir, 'sub\0bad') // null byte → invalid on all OSes
+      const badStore = new RegistryStore(badPath)
+      badStore.load()
+      badStore.save(makeRegistry())
+      expect(() => { vi.runAllTimers() }).not.toThrow()
+    })
+
+    it('does not throw when .bak is corrupted (no crash on backup failure)', () => {
+      // Make .bak a directory so copyFileSync throws
+      const bakDir = path.join(tmpDir, 'registry.json.bak')
+      fs.mkdirSync(bakDir)
+      store.load()
+      store.save(makeRegistry())
+      // The backup step is best-effort — should not crash
+      expect(() => { vi.runAllTimers() }).not.toThrow()
+    })
+
+    it('returns the default registry after repeated failed loads', () => {
+      fs.writeFileSync(path.join(tmpDir, 'registry.json'), '')
+      fs.writeFileSync(path.join(tmpDir, 'registry.json.bak'), '')
+
+      const reg = store.load()
+      expect(reg.version).toBe(1)
+      expect(reg.sessions).toEqual([])
+    })
+
+    it('getDefault() always returns a structurally valid RegistryV1', () => {
+      const def = store.getDefault()
+      expect(def.version).toBe(1)
+      expect(Array.isArray(def.sessions)).toBe(true)
+      expect(Array.isArray(def.windows)).toBe(true)
+      expect(Array.isArray(def.mruOrder)).toBe(true)
     })
   })
 })

@@ -1,7 +1,7 @@
 // Logger must be the first import — initialises file transport and overrides
 // console.* so all subsequent output is captured to %APPDATA%\gsd-tau\logs\main.log.
 import './logger'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { join, dirname } from 'path'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { SessionManager } from './session/session-manager'
@@ -9,6 +9,7 @@ import { RegistryStore } from './persistence/registry-store'
 import { registerHandlers, PUSH, parseOpenProjectArg } from './ipc/handlers'
 import { showBlockerToast } from './os/notifications'
 import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
+import { clampBoundsToDisplays } from './window/clamp-bounds'
 
 // ── SessionManager singleton ───────────────────────────────────────────────────
 
@@ -102,12 +103,50 @@ app.on('before-quit', (event) => {
   })
 })
 
-// ── Window factory ─────────────────────────────────────────────────────────────
+// ── Window bounds helpers ────────────────────────────────────────────────────
 
-function createMainWindow(): BrowserWindow {
+/**
+ * Clamp `bounds` so the window is visible on at least one connected display.
+ *
+ * Delegates to the pure {@link clampBoundsToDisplays} utility (no Electron
+ * dependency, fully unit-testable).  MUST only be called after
+ * `app.whenReady()` — `screen` is unavailable before the app is ready.
+ */
+function clampBoundsToScreen(bounds: {
+  x: number
+  y: number
+  width: number
+  height: number
+}): { x: number; y: number; width: number; height: number } {
+  const clamped = clampBoundsToDisplays(screen.getAllDisplays(), bounds)
+  if (clamped !== bounds) {
+    console.log(
+      `[window-bounds] clamped off-screen bounds ` +
+        `(${bounds.x},${bounds.y} ${bounds.width}×${bounds.height}) → ` +
+        `(${clamped.x},${clamped.y} ${clamped.width}×${clamped.height})`,
+    )
+  }
+  return clamped
+}
+
+// ── Window factory ────────────────────────────────────────────────────────────
+
+/**
+ * Create the main BrowserWindow.
+ *
+ * @param bounds  Optional saved window geometry.  When omitted the window
+ *                defaults to 1200 × 800.  The `close` handler is intentionally
+ *                NOT attached here — it needs access to the bounds-persistence
+ *                timer in the `app.whenReady()` closure and is wired up there.
+ */
+function createMainWindow(bounds?: {
+  x: number
+  y: number
+  width: number
+  height: number
+}): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    ...(bounds ?? { width: 1200, height: 800 }),
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
@@ -119,13 +158,6 @@ function createMainWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => {
     win.show()
-  })
-
-  // Closing the window must always quit the app and cleanly shut down all
-  // pi sessions. `window-all-closed` + app.quit() handles the normal path;
-  // this direct handler is a belt-and-suspenders guard.
-  win.on('close', () => {
-    app.quit()
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -291,7 +323,53 @@ if (!gotSingleInstanceLock) {
     // Remove IPC handlers when the app fully quits so Electron does not warn
     // about lingering handlers after the main process tears down.
     app.once('will-quit', () => cleanupHandlers())
-    createMainWindow()
+
+    // Restore saved window bounds, clamped to visible screen area.
+    // Use the first persisted window record if available; default 1200×800 on
+    // first launch (no records yet).
+    const savedBounds = registry.windows[0]?.bounds
+    const initialBounds = savedBounds ? clampBoundsToScreen(savedBounds) : undefined
+    console.log(
+      initialBounds
+        ? `[startup] restoring window bounds: ${JSON.stringify(initialBounds)}`
+        : '[startup] no saved window bounds — using default 1200×800',
+    )
+
+    const win = createMainWindow(initialBounds)
+
+    // ── Window bounds persistence ───────────────────────────────────────────
+    // Debounce move/resize events at 1 s to prevent thrashing the registry on
+    // every pixel-level drag.  Final bounds are saved synchronously on close so
+    // a quick resize-then-quit sequence is always captured.
+    const winId = String(win.id)
+    let _boundsTimer: ReturnType<typeof setTimeout> | null = null
+
+    const scheduleBoundsSave = (): void => {
+      if (_boundsTimer) clearTimeout(_boundsTimer)
+      _boundsTimer = setTimeout(() => {
+        _boundsTimer = null
+        const b = win.getBounds()
+        registryStore.updateWindowBounds(winId, b)
+        console.log(
+          `[window-bounds] debounced save for window ${winId}: ${JSON.stringify(b)}`,
+        )
+      }, 1_000)
+    }
+
+    win.on('move', scheduleBoundsSave)
+    win.on('resize', scheduleBoundsSave)
+
+    // Save final bounds immediately on close so they survive quick-resize-then-quit.
+    // registryStore.flush() in `before-quit` will write the pending entry to disk.
+    win.on('close', () => {
+      if (_boundsTimer) {
+        clearTimeout(_boundsTimer)
+        _boundsTimer = null
+      }
+      registryStore.updateWindowBounds(winId, win.getBounds())
+      console.log(`[window-bounds] final save on close for window ${winId}`)
+      app.quit()
+    })
 
     // Restore sessions from the registry in parallel.  All opens are attempted
     // regardless of individual failures.  Missing-path sessions (cwd gone)
