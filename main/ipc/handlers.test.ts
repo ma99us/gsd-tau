@@ -72,6 +72,7 @@ describe('registerHandlers', () => {
     updateSessionFile: ReturnType<typeof vi.fn>
     getRpcState: ReturnType<typeof vi.fn>
     getSessionStats: ReturnType<typeof vi.fn>
+    compact: ReturnType<typeof vi.fn>
     listMissingPaths: ReturnType<typeof vi.fn>
     removeMissingPath: ReturnType<typeof vi.fn>
     getAvailableModels: ReturnType<typeof vi.fn>
@@ -114,6 +115,7 @@ describe('registerHandlers', () => {
       updateSessionFile: vi.fn(),
       getRpcState: vi.fn().mockResolvedValue(null),
       getSessionStats: vi.fn().mockResolvedValue(null),
+      compact: vi.fn().mockResolvedValue({ summary: 'compacted', firstKeptEntryId: 'e1', tokensBefore: 1000 }),
       listMissingPaths: vi.fn().mockReturnValue([]),
       removeMissingPath: vi.fn(),
       getAvailableModels: vi.fn().mockResolvedValue([]),
@@ -132,9 +134,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 18 IPC channels', () => {
+    it('registers handlers for all 19 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(18)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(19)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
@@ -154,6 +156,7 @@ describe('registerHandlers', () => {
       expect(capturedHandlers.has(IPC.GET_RPC_STATE)).toBe(true)
       expect(capturedHandlers.has(IPC.GET_SESSION_STATS)).toBe(true)
       expect(capturedHandlers.has(IPC.SET_THINKING_LEVEL)).toBe(true)
+      expect(capturedHandlers.has(IPC.COMPACT)).toBe(true)
     })
   })
 
@@ -385,7 +388,7 @@ describe('registerHandlers', () => {
   // ── cleanup ──────────────────────────────────────────────────────────────────
 
   describe('cleanup', () => {
-    it('removes all 18 ipcMain handlers', () => {
+    it('removes all 19 ipcMain handlers', () => {
       const ipcMock = ipcMain as unknown as IpcMock
       cleanup()
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SHOW_FOLDER_PICKER)
@@ -407,6 +410,7 @@ describe('registerHandlers', () => {
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_RPC_STATE)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_SESSION_STATS)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SET_THINKING_LEVEL)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.COMPACT)
     })
 
     it('stops event fan-out after cleanup', async () => {
@@ -973,6 +977,43 @@ describe('registerHandlers', () => {
         capturedHandlers.get(IPC.RENAME_SESSION)!(null, 's_no_such_session', 'Name'),
       ).not.toThrow()
       expect(manager.rename).toHaveBeenCalledWith('s_no_such_session', 'Name')
+    })
+  })
+
+  // ── compact ─────────────────────────────────────────────────────────────────
+
+  describe('compact', () => {
+    beforeEach(async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+    })
+
+    it('calls manager.compact() and returns the CompactionResult', async () => {
+      const result = await capturedHandlers.get(IPC.COMPACT)!(null, mockHandle.sessionId)
+      expect(manager.compact).toHaveBeenCalledWith(mockHandle.sessionId, undefined)
+      expect(result).toEqual({ summary: 'compacted', firstKeptEntryId: 'e1', tokensBefore: 1000 })
+    })
+
+    it('forwards customInstructions when provided', async () => {
+      await capturedHandlers.get(IPC.COMPACT)!(null, mockHandle.sessionId, 'focus on auth')
+      expect(manager.compact).toHaveBeenCalledWith(mockHandle.sessionId, 'focus on auth')
+    })
+
+    it('returns null and logs console.error when manager.compact() rejects', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      manager.compact.mockRejectedValueOnce(new Error('RPC compact failed'))
+      const result = await capturedHandlers.get(IPC.COMPACT)!(null, mockHandle.sessionId)
+      expect(result).toBeNull()
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('compact'),
+        expect.any(Error),
+      )
+      spy.mockRestore()
+    })
+
+    it('returns null when manager.compact() throws for unknown session', async () => {
+      manager.compact.mockRejectedValueOnce(new Error("SessionManager.compact(): unknown session 's_ghost'"))
+      const result = await capturedHandlers.get(IPC.COMPACT)!(null, 's_ghost')
+      expect(result).toBeNull()
     })
   })
 

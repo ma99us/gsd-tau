@@ -515,6 +515,23 @@ export class SessionManager {
   }
 
   /**
+   * Trigger pi context compaction for a session.
+   *
+   * Delegates to `client.compact()` — the RPC client handles the round-trip
+   * and returns a `CompactionResult` describing the summary and token counts.
+   *
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async compact(
+    id: SessionId,
+    customInstructions?: string,
+  ): Promise<import('@opengsd/contracts').CompactionResult> {
+    const entry = this._sessions.get(id)
+    if (!entry) throw new Error(`SessionManager.compact(): unknown session '${id}'`)
+    return entry.client.compact(customInstructions)
+  }
+
+  /**
    * Close an active session by its stable ID.
    *
    * Sequence:

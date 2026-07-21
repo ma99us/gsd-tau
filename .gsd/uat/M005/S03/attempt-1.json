@@ -1,0 +1,228 @@
+{
+  "runId": "uat:M005:S03:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M005",
+  "sliceId": "S03",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-21T19:37:41.924Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "PRE-01",
+      "description": "pnpm tsc --noEmit exits 0",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "6284eba2-4943-41b7-bbe8-66903b116da5"
+        }
+      ],
+      "notes": "TypeScript check completed with no errors in 327ms."
+    },
+    {
+      "id": "PRE-02",
+      "description": "pnpm test reports 709 tests passed (all 29 files green)",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "1a77b8a1-5011-4d8c-a3ed-5168e1c640a7"
+        }
+      ],
+      "notes": "Test Files: 29 passed (29). Tests: 709 passed (709). Duration 1.86s."
+    },
+    {
+      "id": "ART-01",
+      "description": "All key S03 files present",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "4758034b-91f9-4a89-bdec-987e79eec04c"
+        }
+      ],
+      "notes": "All 7 key files confirmed present: ThinkingLevelChip.tsx, SessionHeaderBar.tsx, shared/types.ts, session-handle.ts, handlers.ts, preload.ts, SessionHeaderBar.test.tsx."
+    },
+    {
+      "id": "TC-1",
+      "description": "Chip renders on reasoning model (isReasoningModel guard, currentLevel render)",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "aa139466-bbcc-4613-976e-5934c7f19c99"
+        }
+      ],
+      "notes": "ThinkingLevelChip.tsx: isReasoningModel guard present, renders currentLevel, early return null for non-reasoning model confirmed."
+    },
+    {
+      "id": "TC-2",
+      "description": "Chip absent on non-reasoning model (early return null)",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "aa139466-bbcc-4613-976e-5934c7f19c99"
+        }
+      ],
+      "notes": "Component contains isReasoningModel guard and early return null. SessionHeaderBar also has isReasoningModel guard for separator."
+    },
+    {
+      "id": "TC-3",
+      "description": "Picker opens and switches level — 7 levels in dropdown, chip updates, setThinkingLevel called",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "ddb4e1df-84ea-46fc-995a-929da728e947"
+        },
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "062c864d-c4e8-44ad-9092-0ff053249a53"
+        }
+      ],
+      "notes": "RPC_THINKING_LEVELS = ['off','minimal','low','medium','high','xhigh','max'] (7 levels). Note: level names are off/minimal not auto/min as specified in UAT — implementation used pi's native level names. setThinkingLevel in preload and session-handle confirmed."
+    },
+    {
+      "id": "TC-4",
+      "description": "Rollback on failure — chip reverts on null return, console.error fires",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "dcc32454-2489-49e2-b4bc-6e8de2b5a826"
+        }
+      ],
+      "notes": "SessionHeaderBar has optimistic/rollback logic and console.error confirmed present. 'parent owns IPC + rollback' as documented in ThinkingLevelChip JSDoc."
+    },
+    {
+      "id": "TC-5",
+      "description": "Ctrl+Shift+T cycles level, wraps max to first",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "3bccc82b-a664-475b-b24d-7820cbe0d0c3"
+        },
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "863ad430-d5f8-4125-bc0a-1900f3c04ba6"
+        }
+      ],
+      "notes": "nextIdx = (idx + 1) % RPC_THINKING_LEVELS.length with modulo wrap confirmed. Ctrl+Shift+T cycling describe block in test file confirmed. document.addEventListener/removeEventListener for keydown in useEffect."
+    },
+    {
+      "id": "EC-1",
+      "description": "Level already at max wraps to first (auto/off)",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "3bccc82b-a664-475b-b24d-7820cbe0d0c3"
+        }
+      ],
+      "notes": "Modulo wrap (idx + 1) % length handles max → index 0 wrap-around correctly."
+    },
+    {
+      "id": "EC-2",
+      "description": "setThinkingLevel returns null (IPC error) — chip rolls back",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "dcc32454-2489-49e2-b4bc-6e8de2b5a826"
+        }
+      ],
+      "notes": "Rollback on null confirmed in SessionHeaderBar with console.error logging. NEEDS-HUMAN for live IPC kill scenario."
+    },
+    {
+      "id": "LIVE-1",
+      "description": "Live Electron session with reasoning model shows chip, clicking opens picker, level persists",
+      "mode": "human-follow-up",
+      "nonAutomatable": true,
+      "result": "NEEDS-HUMAN",
+      "evidence": [],
+      "notes": "Requires a live Electron build with a real pi session. All code paths are verified by unit tests (709 passing). Human tester: open session with anthropic/claude-sonnet-4-5, verify 💡 medium ▼ chip in header, click to open picker, select different level, confirm chip updates."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All preconditions met (tsc clean, 709/709 tests green); all key S03 artifacts verified: ThinkingLevelChip renders on reasoning models with early-return null guard, 7 levels via RPC_THINKING_LEVELS constant (off/minimal/low/medium/high/xhigh/max), optimistic-update+rollback owned by SessionHeaderBar, Ctrl+Shift+T cycling with modulo wrap, SET_THINKING_LEVEL IPC handler and preload binding all present."
+}

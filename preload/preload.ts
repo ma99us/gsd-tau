@@ -16,6 +16,7 @@ import type {
   RpcSessionState,
   SessionStats,
   ThinkingLevel,
+  CompactionResult,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -56,6 +57,11 @@ const IPC = {
    * Mirrored from main/ipc/handlers.ts IPC.SET_THINKING_LEVEL.
    */
   SET_THINKING_LEVEL: 'setThinkingLevel',
+  /**
+   * Trigger pi context compaction for a session.
+   * Mirrored from main/ipc/handlers.ts IPC.COMPACT.
+   */
+  COMPACT: 'compact',
 } as const
 
 const PUSH = {
@@ -162,6 +168,12 @@ export function createGsdApi(): GsdApi {
 
     setThinkingLevel: (sessionId: SessionId, level: ThinkingLevel): Promise<void> =>
       ipcRenderer.invoke(IPC.SET_THINKING_LEVEL, sessionId, level),
+
+    compact: (
+      sessionId: SessionId,
+      customInstructions?: string,
+    ): Promise<CompactionResult | null> =>
+      ipcRenderer.invoke(IPC.COMPACT, sessionId, customInstructions),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 

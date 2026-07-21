@@ -6,10 +6,10 @@
 // `import type` is fully erased at compile/bundle time — zero runtime footprint
 // in the renderer bundle.  Bundlers (Vite, esbuild) strip type-only imports before
 // emitting JS, so @opengsd/contracts never ships to the browser context.
-import type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent } from '@opengsd/contracts'
+import type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent, CompactionResult } from '@opengsd/contracts'
 
 // Re-export so callers import from @shared/types, not directly from the package.
-export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent }
+export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent, CompactionResult }
 
 /**
  * All 7 reasoning levels supported by pi, ordered from least to most intensive.
@@ -106,6 +106,12 @@ export interface GsdApi {
    * Returns `null` when the session is unknown or pi returns an error.
    */
   getSessionStats(sessionId: SessionId): Promise<SessionStats | null>
+  /**
+   * Trigger pi context compaction for a session.
+   * Returns a `CompactionResult` describing the compacted context on success.
+   * Returns `null` when the session is unknown or pi returns an error.
+   */
+  compact(sessionId: SessionId, customInstructions?: string): Promise<CompactionResult | null>
   listSessions(): Promise<SessionRecord[]>
   closeSession(sessionId: SessionId): Promise<void>
   renameSession(sessionId: SessionId, name: string): Promise<void>

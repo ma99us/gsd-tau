@@ -46,6 +46,7 @@ function makeMockClient(opts?: { shutdownDelay?: number }): RpcClient {
     switchSession: vi.fn().mockResolvedValue(undefined),
     getAvailableModels: vi.fn().mockResolvedValue([]),
     setModel: vi.fn().mockResolvedValue(undefined),
+    compact: vi.fn().mockResolvedValue({ summary: 'compacted', firstKeptEntryId: 'e1', tokensBefore: 1000 }),
   } as unknown as RpcClient
 }
 
@@ -733,6 +734,43 @@ describe('SessionManager', () => {
       expect(mgr2.list()).toHaveLength(1)
 
       await mgr2.close(result.restored[0]!)
+    })
+  })
+
+  // ── compact() ──────────────────────────────────────────────────────────────
+
+  describe('compact()', () => {
+    it('delegates to client.compact() and returns CompactionResult', async () => {
+      const handle = await mgr.open('/proj/a')
+      const result = await mgr.compact(handle.sessionId)
+      expect(
+        (client as unknown as { compact: ReturnType<typeof vi.fn> }).compact,
+      ).toHaveBeenCalledWith(undefined)
+      expect(result).toEqual({ summary: 'compacted', firstKeptEntryId: 'e1', tokensBefore: 1000 })
+      await mgr.close(handle.sessionId)
+    })
+
+    it('forwards customInstructions to client.compact()', async () => {
+      const handle = await mgr.open('/proj/a')
+      await mgr.compact(handle.sessionId, 'focus on the auth module')
+      expect(
+        (client as unknown as { compact: ReturnType<typeof vi.fn> }).compact,
+      ).toHaveBeenCalledWith('focus on the auth module')
+      await mgr.close(handle.sessionId)
+    })
+
+    it('throws for an unknown session id', async () => {
+      await expect(mgr.compact('s_ghost')).rejects.toThrow(
+        "SessionManager.compact(): unknown session 's_ghost'",
+      )
+    })
+
+    it('propagates a rejection from client.compact()', async () => {
+      const handle = await mgr.open('/proj/a')
+      ;(client as unknown as { compact: ReturnType<typeof vi.fn> }).compact
+        .mockRejectedValueOnce(new Error('compact RPC failed'))
+      await expect(mgr.compact(handle.sessionId)).rejects.toThrow('compact RPC failed')
+      await mgr.close(handle.sessionId)
     })
   })
 

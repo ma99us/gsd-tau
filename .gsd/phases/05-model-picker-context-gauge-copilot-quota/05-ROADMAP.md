@@ -18,7 +18,7 @@
 - [x] **S02: Model picker dropdown** `risk:medium` `depends:[S01]`
   > After this: Click 'anthropic/claude-sonnet-4.6'; dropdown shows all available models grouped by provider. Pick a different model; chip updates immediately.
 
-- [ ] **S03: Thinking level chip and picker** `risk:low` `depends:[S01]`
+- [x] **S03: Thinking level chip and picker** `risk:low` `depends:[S01]`
   > After this: Header shows '💡 medium'. Click chip; picker shows all 7 levels with current selected. Pick 'high'; chip updates to '💡 high'. On a non-reasoning model chip is absent.
 
 - [ ] **S04: Context window gauge with compact button** `risk:medium` `depends:[S01]`

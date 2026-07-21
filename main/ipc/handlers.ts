@@ -62,6 +62,11 @@ export const IPC = {
    * Returns null on error rather than throwing (callers roll back optimistic state).
    */
   SET_THINKING_LEVEL: 'setThinkingLevel',
+  /**
+   * Trigger pi context compaction for a session.
+   * Returns the CompactionResult on success, null on error.
+   */
+  COMPACT: 'compact',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -697,6 +702,22 @@ export function registerHandlers(
     },
   )
 
+  // ── compact ───────────────────────────────────────────────────────────────────
+  //
+  // Same null-on-error pattern as getRpcState / getSessionStats so the renderer
+  // can handle RPC failures without crashing (session may be closed in-flight).
+  ipcMain.handle(
+    IPC.COMPACT,
+    async (_event, sessionId: SessionId, customInstructions?: string) => {
+      try {
+        return await manager.compact(sessionId, customInstructions)
+      } catch (err) {
+        console.error(`[handlers] compact failed for session ${sessionId}:`, err)
+        return null
+      }
+    },
+  )
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -717,6 +738,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.GET_RPC_STATE)
     ipcMain.removeHandler(IPC.GET_SESSION_STATS)
     ipcMain.removeHandler(IPC.SET_THINKING_LEVEL)
+    ipcMain.removeHandler(IPC.COMPACT)
 
     for (const [, entry] of sessions) {
       entry.cleanup()
