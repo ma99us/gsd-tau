@@ -1,36 +1,36 @@
 /**
- * SessionHeaderBar — model chip and cost display.
+ * SessionHeaderBar — model chip, thinking level chip, and cost display.
  *
  * Renders above the turn list in SessionView. Shows the active pi model
- * identifier (provider/model-id) and cumulative session cost in USD.
+ * identifier (provider/model-id), an optional thinking-level chip (visible
+ * only for reasoning models), and the cumulative session cost in USD.
  *
  * Behaviour:
- * - Fetches the active model via `getRpcState` on mount and after each
- *   `execution_complete` event (model may change if the user switches
- *   mid-session).
+ * - Fetches the active model and thinking level via `getRpcState` on mount
+ *   and after each `execution_complete` event.
+ * - The thinking level chip renders only when the current model has
+ *   `reasoning === true`.  Clicking opens a picker for all 7 levels;
+ *   Ctrl+Shift+T cycles forward without opening the dropdown.
+ * - Model and thinking-level changes are applied optimistically and reverted
+ *   (with `console.error`) on IPC rejection.
  * - Accumulates cost from `cost_update` events using `cumulativeCost`
  *   (not a running sum of `turnCost`) so the display is always accurate
  *   even if a push event is missed.
  * - Subscribes to events independently via `window.gsd.onEvent` so it
  *   can be rendered as a standalone child of SessionView without
  *   requiring changes to SessionView's own event handler.
- * - The model chip is now a `ModelPickerDropdown` — clicking it opens a
- *   grouped list of available models from `getAvailableModels`.  Selecting
- *   a model calls `setModel`, updates the chip optimistically, and confirms
- *   on the next `getRpcState` fetch triggered by `execution_complete`.  If
- *   `setModel` rejects the optimistic state is reverted and the error is
- *   logged via `console.error`.
  *
  * Graceful degradation:
  * - Renders '—' for model when `getRpcState` returns null or the model
  *   field is absent (e.g. briefly on session open before state settles).
  * - Shows '$0.0000' on mount until the first `cost_update` arrives.
- * - Silently swallows `getRpcState` errors — keeps the last known model.
+ * - Silently swallows `getRpcState` errors — keeps the last known state.
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import type { SessionId, SessionEvent, RpcCostUpdateEvent, ModelInfo } from '@shared/types'
+import type { SessionId, SessionEvent, RpcCostUpdateEvent, ModelInfo, ThinkingLevel } from '@shared/types'
 import { ModelPickerDropdown } from './ModelPickerDropdown'
+import { ThinkingLevelChip } from './ThinkingLevelChip'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,8 @@ function formatCost(cost: number): string {
 
 export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Element {
   const [model, setModel] = useState<{ provider: string; id: string } | null>(null)
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | null>(null)
+  const [isReasoningModel, setIsReasoningModel] = useState(false)
   const [cost, setCost] = useState(0)
 
   /**
@@ -77,6 +79,25 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
   )
 
   /**
+   * Apply an optimistic thinking-level update then call setThinkingLevel over IPC.
+   * On rejection the previous level is restored and the error is logged.
+   * Memoised on `sessionId` and `thinkingLevel` — same pattern as handleModelSelected.
+   */
+  const handleLevelSelected = useCallback(
+    (level: ThinkingLevel): void => {
+      const previous = thinkingLevel
+      setThinkingLevel(level)
+      window.gsd
+        .setThinkingLevel(sessionId, level)
+        .catch((err: unknown) => {
+          console.error('[SessionHeaderBar] setThinkingLevel failed — reverting', err)
+          setThinkingLevel(previous)
+        })
+    },
+    [sessionId, thinkingLevel],
+  )
+
+  /**
    * Fetch the active model from the main process.
    * Memoised on `sessionId` so it is stable across re-renders and can be
    * safely listed as a dependency of the event-subscription `useEffect`.
@@ -87,6 +108,14 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
       .then((state) => {
         if (state?.model) {
           setModel({ provider: state.model.provider, id: state.model.id })
+          // Determine whether the chip should be shown — set before thinkingLevel
+          // so both pieces of state are ready when the component re-renders.
+          setIsReasoningModel(state.model.reasoning === true)
+        }
+        if (state?.thinkingLevel !== undefined) {
+          // Cast: contracts ThinkingLevel is structurally identical to our local
+          // ThinkingLevel; the values are the same string literals.
+          setThinkingLevel(state.thinkingLevel as ThinkingLevel)
         }
         // If state is null or model is absent, retain the current display —
         // this is normal during the brief window between session open and the
@@ -94,7 +123,7 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
       })
       .catch(() => {
         // getRpcState rejected (e.g. session closed mid-flight). Keep the
-        // last known model rather than blanking the display.
+        // last known state rather than blanking the display.
       })
   }, [sessionId])
 
@@ -143,6 +172,25 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
       <span className="select-none text-neutral-600" aria-hidden="true">
         ·
       </span>
+
+      {/*
+       * Thinking level chip — only rendered when the active model supports
+       * reasoning (isReasoningModel === true).  Returns null otherwise, so
+       * the separator below is also conditionally rendered to avoid a
+       * dangling ' · ' when the chip is hidden.
+       */}
+      {isReasoningModel && (
+        <>
+          <ThinkingLevelChip
+            currentLevel={thinkingLevel}
+            isReasoningModel={isReasoningModel}
+            onLevelSelected={handleLevelSelected}
+          />
+          <span className="select-none text-neutral-600" aria-hidden="true">
+            ·
+          </span>
+        </>
+      )}
 
       {/* Cost — tabular-nums keeps digits from shifting during streaming updates */}
       <span className="shrink-0 tabular-nums" title="Cumulative session cost (USD)">
