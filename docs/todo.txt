@@ -1,0 +1,1 @@
+See if it is possible to actaully save the entire chat conversation history (with some meaningfull limit), and restore that as well into the chat upper portion? If gsd eos not support it, then come up with a way to persist it on our own and assosiate it with the restored session id.

@@ -55,6 +55,8 @@ const PUSH = {
    * Payload: {@link MissingPathInfo}.
    */
   MISSING_PATH: 'session:missing-path',
+  /** Emitted when the user closes the window; renderer shows a blocking overlay. */
+  APP_CLOSING: 'app:closing',
 } as const
 
 // ── GSD API factory ────────────────────────────────────────────────────────────
@@ -268,6 +270,14 @@ export function createGsdApi(): GsdApi {
       ipcRenderer.on(PUSH.MISSING_PATH, listener)
       return (): void => {
         ipcRenderer.off(PUSH.MISSING_PATH, listener)
+      }
+    },
+
+    onAppClosing: (cb: () => void): Unsubscribe => {
+      const listener = (): void => cb()
+      ipcRenderer.on(PUSH.APP_CLOSING, listener)
+      return (): void => {
+        ipcRenderer.off(PUSH.APP_CLOSING, listener)
       }
     },
   }

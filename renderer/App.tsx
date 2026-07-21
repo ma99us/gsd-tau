@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSessionsStore } from './state/sessions-store'
 import { TabBar } from './components/TabBar'
 import { SessionView } from './components/SessionView'
+import { ClosingOverlay } from './components/ClosingOverlay'
 import type { TabEntry as TabBarEntry } from './components/TabBar'
 
 // ── Recent sessions persistence ───────────────────────────────────────────────
@@ -54,6 +55,15 @@ function App(): JSX.Element {
   const [opening, setOpening] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
   const [recents, setRecents] = useState<RecentEntry[]>(loadRecents)
+  /** Non-null while a single tab is shutting down — shows the closing overlay. */
+  const [closingTabName, setClosingTabName] = useState<string | null>(null)
+  /** True when the window-close sequence has been initiated. */
+  const [isAppClosing, setIsAppClosing] = useState(false)
+  const closingOverlayMsg = isAppClosing
+    ? 'Closing gsd-tau…'
+    : closingTabName
+      ? `Closing ${closingTabName}…`
+      : null
 
   // ── Initialise the sessions store once on mount ───────────────────────────
   useEffect(() => {
@@ -64,6 +74,14 @@ function App(): JSX.Element {
     return () => {
       cleanup?.()
     }
+  }, [])
+
+  // Subscribe to window-close signal from main process.
+  useEffect(() => {
+    const unsub = window.gsd.onAppClosing(() => {
+      setIsAppClosing(true)
+    })
+    return unsub
   }, [])
 
   // Keep recents in sync when the window regains focus.
@@ -108,6 +126,8 @@ function App(): JSX.Element {
   if (tabOrder.length === 0) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center gap-8 bg-neutral-900">
+        {/* Blocking overlay for app-close sequence (even on the empty screen) */}
+        {closingOverlayMsg !== null && <ClosingOverlay message={closingOverlayMsg} />}
         {/* Wordmark */}
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-100">gsd-tau</h1>
@@ -208,7 +228,11 @@ function App(): JSX.Element {
       const ok = window.confirm('A task is in progress. Close tab anyway?')
       if (!ok) return
     }
-    void closeTab(id)
+    const label = tab?.displayName ?? 'session'
+    setClosingTabName(label)
+    void closeTab(id).finally(() => {
+      setClosingTabName(null)
+    })
   }
 
   const handleTabReorder = (fromIndex: number, toIndex: number): void => {
@@ -220,6 +244,8 @@ function App(): JSX.Element {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-neutral-900">
+      {/* Blocking overlay while a tab or the whole app is shutting down */}
+      {closingOverlayMsg !== null && <ClosingOverlay message={closingOverlayMsg} />}
       {/* Tab bar */}
       <TabBar
         tabs={tabBarTabs}

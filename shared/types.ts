@@ -96,6 +96,12 @@ export interface GsdApi {
    */
   onSessionMissingPath(cb: (info: MissingPathInfo) => void): Unsubscribe
   /**
+   * Subscribe to the `app:closing` push emitted by the main process when the
+   * user closes the window.  The renderer shows a blocking overlay on receipt;
+   * the main process handles the actual shutdown — no response is required.
+   */
+  onAppClosing(cb: () => void): Unsubscribe
+  /**
    * Fetch all sessions whose project directories were not found at restore time.
    * Called during store initialisation to catch missing-path sessions that fired
    * before the renderer's push subscription was set up.
@@ -257,4 +263,10 @@ export interface RegistryV1 {
    * Used to populate the [+] flyout recents list.
    */
   mruOrder: string[]
+  /**
+   * Persistent map from project CWD to the last pi session file for that
+   * project.  Survives tab close (unlike `sessions` which is live-only) so
+   * the "open recent" flow can resume the prior conversation.
+   */
+  sessionHistory?: Record<string, string>
 }

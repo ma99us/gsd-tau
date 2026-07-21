@@ -65,6 +65,11 @@ export const PUSH = {
    * Payload: {@link MissingPathInfo}.
    */
   MISSING_PATH: 'session:missing-path',
+  /**
+   * Emitted when the user closes the app window.  The renderer shows a
+   * blocking overlay while the main process shuts down all sessions.
+   */
+  APP_CLOSING: 'app:closing',
 } as const
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -276,6 +281,8 @@ export function registerHandlers(
   // Extracted from the openProject IPC handler so the second-instance handler
   // can call it directly (in-process) without going through Electron IPC.
   async function doOpenProject(cwd: string): Promise<SessionId> {
+      console.log(`[handlers] doOpenProject cwd="${cwd}"`)
+
       const handle = await manager.open(cwd)
       const id = handle.sessionId
 
@@ -353,6 +360,19 @@ export function registerHandlers(
         }
         if (ev.type === 'extension_ui_snapshot') {
           console.debug(`[handlers] extension_ui_snapshot:`, JSON.stringify(ev))
+        }
+
+        // Capture the session file path so the registry can resume this
+        // conversation on the next open.
+        if (ev.type === 'execution_complete') {
+          const statsFile = (ev as unknown as { stats?: { sessionFile?: string } }).stats?.sessionFile
+          if (statsFile) {
+            console.log(`[handlers] execution_complete: capturing sessionFile for session ${id}`,
+              `\n  file="${statsFile}"`)
+            manager.updateSessionFile(id, statsFile)
+          } else {
+            console.warn(`[handlers] execution_complete: no stats.sessionFile in payload for session ${id}`)
+          }
         }
 
         fanOut(getWc, PUSH.SESSION_EVENT, { sessionId: id, event: ev })

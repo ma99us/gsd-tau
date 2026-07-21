@@ -312,7 +312,8 @@ if (!gotSingleInstanceLock) {
     // Load the persisted registry synchronously before opening the main window.
     // load() never throws — falls back to registry.json.bak then an empty default.
     const registry = registryStore.load()
-    console.log(`[startup] registry loaded: ${registry.sessions.length} session(s)`)
+    console.log(`[startup] registry loaded: ${registry.sessions.length} session(s), ${Object.keys(registry.sessionHistory ?? {}).length} history entries`)
+    sessionManager.initHistory(registry.sessionHistory ?? {})
 
     let _winId = ''
     const { cleanup: cleanupHandlers, handleOpenProject } = registerHandlers(
@@ -364,15 +365,52 @@ if (!gotSingleInstanceLock) {
     win.on('resize', scheduleBoundsSave)
 
     // Save final bounds immediately on close so they survive quick-resize-then-quit.
-    // registryStore.flush() in `before-quit` will write the pending entry to disk.
-    win.on('close', () => {
+    // We preventDefault on the first close event, notify the renderer so it can
+    // show a blocking overlay, close all sessions gracefully, then destroy the
+    // window (which re-fires the event without preventDefault).
+    let _appQuitReady = false
+    win.on('close', (e) => {
+      if (_appQuitReady) {
+        // Second pass — allow the close to proceed.
+        // Bounds were already saved on the first pass; do NOT call
+        // updateWindowBounds here or it queues a new empty-history save that
+        // overwrites the sessionHistory we just flushed.
+        console.log(`[window-bounds] final close pass for window ${winId}`)
+        app.quit()
+        return
+      }
+
+      // First pass — save bounds, intercept, show overlay, shut down sessions.
       if (_boundsTimer) {
         clearTimeout(_boundsTimer)
         _boundsTimer = null
       }
       registryStore.updateWindowBounds(winId, win.getBounds())
       console.log(`[window-bounds] final save on close for window ${winId}`)
-      app.quit()
+
+      e.preventDefault()
+      _appQuitReady = true
+
+      // Notify renderer so it shows the blocking closing overlay.
+      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send(PUSH.APP_CLOSING)
+      }
+
+      // Close all active sessions gracefully then let the window close.
+      const ids = sessionManager.activeSessions
+      console.log(`[shutdown] closing ${ids.length} session(s) before quit:`, ids.join(', '))
+      void Promise.all(ids.map((id) => sessionManager.close(id).catch((err) => {
+        console.warn(`[shutdown] session ${id} close error:`, err)
+      }))).then(() => {
+        console.log(
+          `[shutdown] all sessions closed`,
+          `— history size=${sessionManager.activeSessions.length}`,
+          `— calling registryStore.flush()`,
+        )
+        registryStore.flush()
+        console.log('[shutdown] flush done — closing window')
+        win.close() // re-fires event; _appQuitReady is true so it passes through
+      })
     })
 
     // Restore sessions from the registry in parallel.  All opens are attempted

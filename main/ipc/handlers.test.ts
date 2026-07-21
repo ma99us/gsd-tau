@@ -66,6 +66,9 @@ describe('registerHandlers', () => {
     registerPreShutdownHook: ReturnType<typeof vi.fn>
     list: ReturnType<typeof vi.fn>
     rename: ReturnType<typeof vi.fn>
+    resume: ReturnType<typeof vi.fn>
+    getHistorySessionFile: ReturnType<typeof vi.fn>
+    updateSessionFile: ReturnType<typeof vi.fn>
   }
   let cleanup: () => void
 
@@ -99,6 +102,9 @@ describe('registerHandlers', () => {
       registerPreShutdownHook: vi.fn(),
       list: vi.fn().mockReturnValue([]),
       rename: vi.fn(),
+      resume: vi.fn().mockResolvedValue(undefined),
+      getHistorySessionFile: vi.fn().mockReturnValue(undefined),
+      updateSessionFile: vi.fn(),
     }
 
     ;({ cleanup } = registerHandlers(manager as never))

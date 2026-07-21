@@ -98,6 +98,13 @@ export class SessionManager {
   private readonly _registryStore: RegistryStoreLike | null
   private readonly _sessions = new Map<SessionId, ActiveSession>()
   /**
+   * Persistent map from project CWD → last known pi session file.
+   * Updated on every `execution_complete` event and preserved through tab
+   * close so the "open recent" flow can resume the prior conversation.
+   * Seeded from `RegistryV1.sessionHistory` on app startup.
+   */
+  private readonly _sessionHistory = new Map<string, string>()
+  /**
    * Sessions whose project directories were not found during the most recent
    * restore().  No pi process is running for these ids; they are tracked so the
    * renderer can show a MissingSessionBanner and call reassignMissingPath() or
@@ -111,6 +118,33 @@ export class SessionManager {
   }
 
   // ── public API ──────────────────────────────────────────────────────────────
+
+  /**
+   * Seed the session history from the persisted registry.
+   * Called once on app startup after loading the registry.
+   */
+  initHistory(history: Record<string, string>): void {
+    const entries = Object.entries(history)
+    for (const [cwd, sessionFile] of entries) {
+      this._sessionHistory.set(cwd, sessionFile)
+    }
+    if (entries.length > 0) {
+      console.log(
+        `[SessionManager] initHistory: loaded ${entries.length} cwd→file mapping(s):`,
+        entries.map(([cwd, f]) => `  "${cwd}" → "${f}"`).join('\n'),
+      )
+    } else {
+      console.log('[SessionManager] initHistory: no prior session history in registry')
+    }
+  }
+
+  /**
+   * Return the last known pi session file for a project CWD, or `undefined`
+   * if this project has never completed a turn in this app.
+   */
+  getHistorySessionFile(cwd: string): string | undefined {
+    return this._sessionHistory.get(cwd)
+  }
 
   /**
    * Open a new pi session for the given working directory.
@@ -318,6 +352,43 @@ export class SessionManager {
    * @param id    Stable session identifier.
    * @param name  New human-readable display name.
    */
+  /**
+   * Attach an already-open session to a prior conversation file.
+   *
+   * Called by the IPC layer after `open()` when a prior session file is known
+   * (the "open recent" restore flow).  Failure is non-fatal: the session stays
+   * live and the conversation starts fresh.
+   */
+  async resume(_id: SessionId, _sessionFile: string): Promise<void> {
+    // No-op: session resume is now handled by spawning pi with --continue.
+    // Kept for interface compatibility; callers can be cleaned up later.
+  }
+
+  /**
+   * Update the session file path for an active session.
+   *
+   * Called by the IPC layer when `execution_complete` fires, which carries
+   * the path of the JSONL file pi wrote to.  Persisting this allows the session
+   * to be resumed via `switchSession` on the next open.
+   *
+   * No-op when `id` is unknown.
+   */
+  updateSessionFile(id: SessionId, sessionFile: string): void {
+    const entry = this._sessions.get(id)
+    if (!entry) {
+      console.warn(`[SessionManager] updateSessionFile: session ${id} not found — ignoring`)
+      return
+    }
+    entry.sessionFile = sessionFile
+    this._sessionHistory.set(entry.cwd, sessionFile)
+    console.log(
+      `[SessionManager] updateSessionFile: session ${id} cwd="${entry.cwd}"`,
+      `\n  sessionFile="${sessionFile}"`,
+      `\n  history size=${this._sessionHistory.size}`,
+    )
+    this._scheduleRegistrySave()
+  }
+
   rename(id: SessionId, name: string): void {
     const entry = this._sessions.get(id)
     if (!entry) return
@@ -344,6 +415,7 @@ export class SessionManager {
       sessions,
       windows: [],
       mruOrder: sessions.map((s) => s.id),
+      sessionHistory: Object.fromEntries(this._sessionHistory),
     }
   }
 
@@ -448,6 +520,20 @@ export class SessionManager {
     if (!entry) return
 
     // Remove before async ops so re-entrant calls don't double-close.
+    // Capture sessionFile first so it survives the deletion.
+    if (entry.sessionFile) {
+      this._sessionHistory.set(entry.cwd, entry.sessionFile)
+      console.log(
+        `[SessionManager] close: captured sessionFile for cwd="${entry.cwd}"`,
+        `\n  sessionFile="${entry.sessionFile}"`,
+        `\n  history size=${this._sessionHistory.size}`,
+      )
+    } else {
+      console.log(
+        `[SessionManager] close: session ${id} has no sessionFile — history not updated`,
+        `(cwd="${entry.cwd}" — no execution_complete received this session)`,
+      )
+    }
     this._sessions.delete(id)
 
     const { handle, client } = entry
@@ -539,6 +625,11 @@ export class SessionManager {
    */
   private _scheduleRegistrySave(): void {
     if (this._registryStore) {
+      const historyKeys = [...this._sessionHistory.keys()]
+      console.log(
+        `[SessionManager] registry save scheduled: ${this._sessions.size} session(s),`,
+        `history=[${historyKeys.map(k => `"${k}"`).join(', ')}]`,
+      )
       this._registryStore.save(this.getRegistry())
     }
   }

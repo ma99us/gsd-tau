@@ -708,17 +708,16 @@ describe('SessionManager', () => {
     })
 
     it('switchSession failure is non-fatal — session still in restored[]', async () => {
-      const failSwitchClient = makeMockClient()
-      ;(failSwitchClient as unknown as { switchSession: ReturnType<typeof vi.fn> })
-        .switchSession.mockRejectedValueOnce(new Error('switch failed'))
-
-      const mgr2 = new SessionManager({ createClient: makeFactory(failSwitchClient) })
+      // Uses process.cwd() so existsSync passes on all platforms.
+      const realCwd = process.cwd()
+      const mgr2 = new SessionManager({ createClient: makeFactory(makeMockClient()) })
+      mgr2.initHistory({ [realCwd]: '/path/to/session.jsonl' })
 
       const result = await mgr2.restore([
-        makeRecord({ cwd: '/proj/x', sessionFile: '/path/to/session.jsonl' }),
+        makeRecord({ cwd: realCwd, sessionFile: '/path/to/session.jsonl' }),
       ])
 
-      // Session is still open and in restored[] even though switchSession threw
+      // Session is opened with --continue; pi handles the resume at spawn time.
       expect(result.restored).toHaveLength(1)
       expect(result.failed).toHaveLength(0)
       expect(mgr2.list()).toHaveLength(1)

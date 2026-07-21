@@ -40,6 +40,13 @@ export class RegistryStore {
 
   private _timer: ReturnType<typeof setTimeout> | null = null
   private _pending: RegistryV1 | null = null
+  /**
+   * Last known sessionHistory — seeded from `load()` and updated on every
+   * `save()`.  Ensures that bounds-only saves (which pass `windows: []` and
+   * no sessionHistory) never silently discard history written by
+   * SessionManager.
+   */
+  private _lastSessionHistory: Record<string, string> | undefined = undefined
 
   /**
    * In-memory window records, seeded from `load()` and mutated by
@@ -75,6 +82,7 @@ export class RegistryStore {
     const primary = this._tryRead(this.registryPath)
     if (primary !== null) {
       this._windows = primary.windows ?? []
+      this._lastSessionHistory = primary.sessionHistory
       return primary
     }
 
@@ -82,6 +90,7 @@ export class RegistryStore {
     const bak = this._tryRead(this.bakPath)
     if (bak !== null) {
       this._windows = bak.windows ?? []
+      this._lastSessionHistory = bak.sessionHistory
       return bak
     }
 
@@ -104,9 +113,15 @@ export class RegistryStore {
    * call within the window is written.
    */
   save(registry: RegistryV1): void {
+    // Preserve sessionHistory: if the incoming registry doesn't carry it
+    // (e.g. a bounds-only save from updateWindowBounds), fall back to the
+    // last known value so history is never silently discarded.
+    const history = registry.sessionHistory ?? this._pending?.sessionHistory ?? this._lastSessionHistory
+    if (history !== undefined) this._lastSessionHistory = history
+
     // Always merge the in-memory window records so that callers which pass
     // `windows: []` (e.g. SessionManager) never erase persisted window geometry.
-    this._pending = { ...registry, windows: this._windows }
+    this._pending = { ...registry, windows: this._windows, sessionHistory: history }
 
     if (this._timer !== null) {
       clearTimeout(this._timer)
@@ -116,6 +131,12 @@ export class RegistryStore {
       this._timer = null
       const reg = this._pending!
       this._pending = null
+      const historyKeys = Object.keys(reg.sessionHistory ?? {})
+      console.log(
+        `[RegistryStore] debounced flush: writing registry`,
+        `sessions=${reg.sessions.length}`,
+        `history=[${historyKeys.map(k => `"${k}"`).join(', ')}]`,
+      )
       this._flush(reg)
     }, 500)
   }
@@ -202,7 +223,15 @@ export class RegistryStore {
     if (this._pending !== null) {
       const reg = this._pending
       this._pending = null
+      const historyKeys = Object.keys(reg.sessionHistory ?? {})
+      console.log(
+        `[RegistryStore] flush: writing registry`,
+        `sessions=${reg.sessions.length}`,
+        `history=[${historyKeys.map(k => `"${k}"`).join(', ')}]`,
+      )
       this._flush(reg)
+    } else {
+      console.log('[RegistryStore] flush: nothing pending — no write')
     }
   }
 
