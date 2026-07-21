@@ -74,6 +74,14 @@ export interface TabEntry {
    * `SessionView` renders `MissingSessionBanner` instead of the normal UI.
    */
   isMissingPath?: boolean
+  /**
+   * Last-known active model — provider + id string.
+   * Undefined until the first successful `getRpcState` call resolves.
+   * Updated by `SessionHeaderBar` after mount and after each `execution_complete`.
+   */
+  modelInfo?: { provider: string; id: string }
+  /** Cumulative session cost in USD, accumulated from `cost_update` events. */
+  cost: number
 }
 
 // ── Store interface ────────────────────────────────────────────────────────────
@@ -140,6 +148,7 @@ function tabFromRecord(rec: SessionRecord): TabEntry {
     state: 'Idle',
     uiRequests: {},
     wasAutoRunning: rec.wasAutoRunning,
+    cost: 0,
   }
 }
 
@@ -234,6 +243,7 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
         state: 'Idle',
         uiRequests: {},
         wasAutoRunning: false,
+        cost: 0,
       }
       set((s) => ({
         sessions: { ...s.sessions, [id]: entry },
@@ -313,6 +323,7 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
           uiRequests: {},
           wasAutoRunning: false,
           isMissingPath: false,
+          cost: 0,
         }
         const oldIdx = s.tabOrder.indexOf(oldId)
         const tabOrder = [...s.tabOrder]
@@ -360,6 +371,7 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
             uiRequests: {},
             wasAutoRunning: false,
             isMissingPath: true,
+            cost: 0,
           }
           tabOrder.push(info.sessionId)
         }
@@ -388,6 +400,7 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
           uiRequests: {},
           wasAutoRunning: false,
           isMissingPath: true,
+          cost: 0,
         }
         set((s) => ({
           sessions: { ...s.sessions, [info.sessionId]: phantom },
@@ -429,6 +442,7 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
                 uiRequests: {},
                 wasAutoRunning: false,
                 isMissingPath: true,
+                cost: 0,
               }
               tabOrder.push(info.sessionId)
             }

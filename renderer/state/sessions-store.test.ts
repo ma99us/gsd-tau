@@ -47,6 +47,7 @@ function makeTabEntry(id: string, cwd: string, overrides?: Partial<TabEntry>): T
     state: 'Idle' as SessionState,
     uiRequests: {},
     wasAutoRunning: false,
+    cost: 0,
     ...overrides,
   }
 }
