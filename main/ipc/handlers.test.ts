@@ -134,9 +134,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 19 IPC channels', () => {
+    it('registers handlers for all 23 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(19)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(23)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
@@ -157,6 +157,11 @@ describe('registerHandlers', () => {
       expect(capturedHandlers.has(IPC.GET_SESSION_STATS)).toBe(true)
       expect(capturedHandlers.has(IPC.SET_THINKING_LEVEL)).toBe(true)
       expect(capturedHandlers.has(IPC.COMPACT)).toBe(true)
+      // Copilot quota channels (T03):
+      expect(capturedHandlers.has(IPC.GET_QUOTA)).toBe(true)
+      expect(capturedHandlers.has(IPC.REFRESH_QUOTA)).toBe(true)
+      expect(capturedHandlers.has(IPC.START_QUOTA_AUTH)).toBe(true)
+      expect(capturedHandlers.has(IPC.DISCONNECT_QUOTA_AUTH)).toBe(true)
     })
   })
 
@@ -388,7 +393,7 @@ describe('registerHandlers', () => {
   // ── cleanup ──────────────────────────────────────────────────────────────────
 
   describe('cleanup', () => {
-    it('removes all 19 ipcMain handlers', () => {
+    it('removes all 23 ipcMain handlers', () => {
       const ipcMock = ipcMain as unknown as IpcMock
       cleanup()
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SHOW_FOLDER_PICKER)
@@ -411,6 +416,11 @@ describe('registerHandlers', () => {
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_SESSION_STATS)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SET_THINKING_LEVEL)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.COMPACT)
+      // Copilot quota channels (T03):
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_QUOTA)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.REFRESH_QUOTA)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.START_QUOTA_AUTH)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.DISCONNECT_QUOTA_AUTH)
     })
 
     it('stops event fan-out after cleanup', async () => {
@@ -1126,5 +1136,213 @@ describe('parseOpenProjectArg', () => {
     expect(
       parseOpenProjectArg(['--some-flag', 'value', '--open-project', '/proj']),
     ).toBe('/proj')
+  })
+})
+
+// ── quota IPC handlers ────────────────────────────────────────────────────────
+//
+// Exercised with a mock QuotaService injected as the 6th parameter so quota
+// logic is isolated from session state.
+
+describe('quota IPC handlers', () => {
+  let capturedHandlers: Map<string, IpcHandler>
+  let mockHandle: MockHandle
+  let mockWcList: Array<ReturnType<typeof makeMockWc>>
+  let mockQuotaService: {
+    getLastSnapshot: ReturnType<typeof vi.fn>
+    refreshNow: ReturnType<typeof vi.fn>
+    startDeviceCodeFlow: ReturnType<typeof vi.fn>
+    disconnect: ReturnType<typeof vi.fn>
+    onAgentEnd: ReturnType<typeof vi.fn>
+  }
+  let manager: {
+    open: ReturnType<typeof vi.fn>
+    prompt: ReturnType<typeof vi.fn>
+    abort: ReturnType<typeof vi.fn>
+    get: ReturnType<typeof vi.fn>
+    close: ReturnType<typeof vi.fn>
+    registerPreShutdownHook: ReturnType<typeof vi.fn>
+    list: ReturnType<typeof vi.fn>
+    rename: ReturnType<typeof vi.fn>
+    resume: ReturnType<typeof vi.fn>
+    getHistorySessionFile: ReturnType<typeof vi.fn>
+    updateSessionFile: ReturnType<typeof vi.fn>
+    getRpcState: ReturnType<typeof vi.fn>
+    getSessionStats: ReturnType<typeof vi.fn>
+    compact: ReturnType<typeof vi.fn>
+    listMissingPaths: ReturnType<typeof vi.fn>
+    removeMissingPath: ReturnType<typeof vi.fn>
+    getAvailableModels: ReturnType<typeof vi.fn>
+    setModel: ReturnType<typeof vi.fn>
+  }
+  let cleanup: () => void
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+
+    capturedHandlers = new Map()
+    mockHandle = new MockHandle()
+    mockWcList = [makeMockWc()]
+
+    const ipcMock = ipcMain as unknown as IpcMock
+    ipcMock.handle.mockImplementation((channel: string, fn: IpcHandler) => {
+      capturedHandlers.set(channel, fn)
+    })
+    ipcMock.removeHandler.mockImplementation((channel: string) => {
+      capturedHandlers.delete(channel)
+    })
+    ;(electronWc as unknown as WcMock).getAllWebContents.mockReturnValue(mockWcList)
+
+    mockQuotaService = {
+      getLastSnapshot: vi.fn().mockReturnValue(null),
+      refreshNow: vi.fn().mockResolvedValue(null),
+      startDeviceCodeFlow: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      onAgentEnd: vi.fn(),
+    }
+
+    manager = {
+      open: vi.fn().mockResolvedValue(mockHandle),
+      prompt: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn(),
+      close: vi.fn().mockResolvedValue(undefined),
+      registerPreShutdownHook: vi.fn(),
+      list: vi.fn().mockReturnValue([]),
+      rename: vi.fn(),
+      resume: vi.fn().mockResolvedValue(undefined),
+      getHistorySessionFile: vi.fn().mockReturnValue(undefined),
+      updateSessionFile: vi.fn(),
+      getRpcState: vi.fn().mockResolvedValue(null),
+      getSessionStats: vi.fn().mockResolvedValue(null),
+      compact: vi.fn().mockResolvedValue(null),
+      listMissingPaths: vi.fn().mockReturnValue([]),
+      removeMissingPath: vi.fn(),
+      getAvailableModels: vi.fn().mockResolvedValue([]),
+      setModel: vi.fn().mockResolvedValue(undefined),
+    }
+
+    ;({ cleanup } = registerHandlers(
+      manager as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      mockQuotaService as never,
+    ))
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.clearAllMocks()
+  })
+
+  // ── getQuota ────────────────────────────────────────────────────────────────
+
+  it('getQuota returns the last snapshot from quotaService', () => {
+    const snapshot = { fetchedAt: '2025-01-01T00:00:00.000Z', stale: false } as const
+    mockQuotaService.getLastSnapshot.mockReturnValue(snapshot)
+    const result = capturedHandlers.get(IPC.GET_QUOTA)!(null)
+    expect(result).toBe(snapshot)
+    expect(mockQuotaService.getLastSnapshot).toHaveBeenCalledTimes(1)
+  })
+
+  it('getQuota returns null when quotaService is absent', () => {
+    // Re-register without a quota service
+    cleanup()
+    const ipcMock = ipcMain as unknown as IpcMock
+    const handlers2 = new Map<string, IpcHandler>()
+    ipcMock.handle.mockImplementation((ch: string, fn: IpcHandler) => handlers2.set(ch, fn))
+    const { cleanup: c2 } = registerHandlers(manager as never)
+    const result = handlers2.get(IPC.GET_QUOTA)!(null)
+    expect(result).toBeNull()
+    c2()
+  })
+
+  // ── refreshQuota ────────────────────────────────────────────────────────────
+
+  it('refreshQuota calls quotaService.refreshNow() and returns the snapshot', async () => {
+    const snapshot = { fetchedAt: '2025-01-01T00:00:00.000Z', stale: false } as const
+    mockQuotaService.refreshNow.mockResolvedValue(snapshot)
+    const result = await capturedHandlers.get(IPC.REFRESH_QUOTA)!(null)
+    expect(mockQuotaService.refreshNow).toHaveBeenCalledTimes(1)
+    expect(result).toBe(snapshot)
+  })
+
+  it('refreshQuota returns null when quotaService is absent', async () => {
+    cleanup()
+    const ipcMock = ipcMain as unknown as IpcMock
+    const handlers2 = new Map<string, IpcHandler>()
+    ipcMock.handle.mockImplementation((ch: string, fn: IpcHandler) => handlers2.set(ch, fn))
+    const { cleanup: c2 } = registerHandlers(manager as never)
+    const result = await handlers2.get(IPC.REFRESH_QUOTA)!(null)
+    expect(result).toBeNull()
+    c2()
+  })
+
+  // ── startQuotaAuth ──────────────────────────────────────────────────────────
+
+  it('startQuotaAuth calls quotaService.startDeviceCodeFlow with a fanOut callback', async () => {
+    await capturedHandlers.get(IPC.START_QUOTA_AUTH)!(null)
+    expect(mockQuotaService.startDeviceCodeFlow).toHaveBeenCalledTimes(1)
+    // Verify the callback fans out on PUSH.QUOTA_DEVICE_CODE
+    const [onDeviceCode] = mockQuotaService.startDeviceCodeFlow.mock.calls[0] as [
+      (info: unknown) => void,
+    ]
+    const mockInfo = {
+      userCode: 'ABCD-1234',
+      verificationUri: 'https://github.com/login/device',
+      expiresIn: 900,
+      interval: 5,
+      deviceCode: 'dev-code-xyz',
+    }
+    onDeviceCode(mockInfo)
+    expect(mockWcList[0].send).toHaveBeenCalledWith(PUSH.QUOTA_DEVICE_CODE, mockInfo)
+  })
+
+  it('startQuotaAuth warns and returns when quotaService is absent', async () => {
+    cleanup()
+    const ipcMock = ipcMain as unknown as IpcMock
+    const handlers2 = new Map<string, IpcHandler>()
+    ipcMock.handle.mockImplementation((ch: string, fn: IpcHandler) => handlers2.set(ch, fn))
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { cleanup: c2 } = registerHandlers(manager as never)
+    await handlers2.get(IPC.START_QUOTA_AUTH)!(null)
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('startQuotaAuth'))
+    spy.mockRestore()
+    c2()
+  })
+
+  // ── disconnectQuotaAuth ─────────────────────────────────────────────────────
+
+  it('disconnectQuotaAuth calls quotaService.disconnect()', async () => {
+    await capturedHandlers.get(IPC.DISCONNECT_QUOTA_AUTH)!(null)
+    expect(mockQuotaService.disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('disconnectQuotaAuth is a no-op when quotaService is absent', async () => {
+    cleanup()
+    const ipcMock = ipcMain as unknown as IpcMock
+    const handlers2 = new Map<string, IpcHandler>()
+    ipcMock.handle.mockImplementation((ch: string, fn: IpcHandler) => handlers2.set(ch, fn))
+    const { cleanup: c2 } = registerHandlers(manager as never)
+    await expect(handlers2.get(IPC.DISCONNECT_QUOTA_AUTH)!(null)).resolves.toBeUndefined()
+    c2()
+  })
+
+  // ── agent_end → onAgentEnd ─────────────────────────────────────────────────
+
+  it('agent_end event triggers quotaService.onAgentEnd()', async () => {
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+    mockHandle.emit('event', { type: 'agent_start' })
+    mockHandle.emit('event', { type: 'agent_end' })
+    expect(mockQuotaService.onAgentEnd).toHaveBeenCalledTimes(1)
+  })
+
+  it('agent_start event does NOT trigger quotaService.onAgentEnd()', async () => {
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+    mockHandle.emit('event', { type: 'agent_start' })
+    expect(mockQuotaService.onAgentEnd).not.toHaveBeenCalled()
   })
 })

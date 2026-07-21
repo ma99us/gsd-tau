@@ -17,6 +17,7 @@ import type {
   SessionStats,
   ThinkingLevel,
   CompactionResult,
+  QuotaSnapshot,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -62,6 +63,12 @@ const IPC = {
    * Mirrored from main/ipc/handlers.ts IPC.COMPACT.
    */
   COMPACT: 'compact',
+
+  // Copilot quota
+  GET_QUOTA: 'getQuota',
+  REFRESH_QUOTA: 'refreshQuota',
+  START_QUOTA_AUTH: 'startQuotaAuth',
+  DISCONNECT_QUOTA_AUTH: 'disconnectQuotaAuth',
 } as const
 
 const PUSH = {
@@ -81,6 +88,10 @@ const PUSH = {
   MISSING_PATH: 'session:missing-path',
   /** Emitted when the user closes the window; renderer shows a blocking overlay. */
   APP_CLOSING: 'app:closing',
+  /** Broadcast whenever a fresh QuotaSnapshot is available (mirrors PUSH.QUOTA_UPDATE). */
+  QUOTA_UPDATE: 'quota:update',
+  /** Broadcast once when the device-code auth flow begins. */
+  QUOTA_DEVICE_CODE: 'quota:device-code',
 } as const
 
 // ── GSD API factory ────────────────────────────────────────────────────────────
@@ -318,6 +329,27 @@ export function createGsdApi(): GsdApi {
       return (): void => {
         ipcRenderer.off(PUSH.APP_CLOSING, listener)
       }
+    },
+
+    // ── Copilot quota ──────────────────────────────────────────────────────────
+
+    getQuota: (): Promise<QuotaSnapshot | null> =>
+      ipcRenderer.invoke(IPC.GET_QUOTA),
+
+    refreshQuota: (): Promise<QuotaSnapshot | null> =>
+      ipcRenderer.invoke(IPC.REFRESH_QUOTA),
+
+    startQuotaAuth: (): Promise<void> =>
+      ipcRenderer.invoke(IPC.START_QUOTA_AUTH),
+
+    disconnectQuotaAuth: (): Promise<void> =>
+      ipcRenderer.invoke(IPC.DISCONNECT_QUOTA_AUTH),
+
+    onQuotaUpdate: (cb: (snapshot: QuotaSnapshot) => void): Unsubscribe => {
+      const listener = (_ev: IpcRendererEvent, snapshot: QuotaSnapshot): void =>
+        cb(snapshot)
+      ipcRenderer.on(PUSH.QUOTA_UPDATE, listener)
+      return (): void => ipcRenderer.off(PUSH.QUOTA_UPDATE, listener)
     },
   }
 }

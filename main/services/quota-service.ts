@@ -39,6 +39,7 @@ import type {
   QuotaProjection,
   QuotaVerdict,
   QuotaHistoryEntry,
+  DeviceCodeInfo,
 } from '../../shared/types'
 import { QuotaHistory } from './quota-history'
 
@@ -97,22 +98,6 @@ const AGENT_END_DEBOUNCE_MS = 5 * 60 * 1000
  * throws an informative error instead of silently failing.
  */
 const GITHUB_CLIENT_ID = process.env['GSD_TAU_GITHUB_CLIENT_ID'] ?? ''
-
-// ── DeviceCodeInfo ─────────────────────────────────────────────────────────────
-
-/**
- * Payload passed to the `onDeviceCode` callback when the device-code flow
- * begins.  The caller (T03 IPC handler) fans this out to the renderer so the
- * user can visit the verification URL and enter the code.
- */
-export interface DeviceCodeInfo {
-  userCode: string
-  verificationUri: string
-  expiresIn: number
-  /** Poll interval in seconds recommended by GitHub. */
-  interval: number
-  deviceCode: string
-}
 
 // ── QuotaService ──────────────────────────────────────────────────────────────
 

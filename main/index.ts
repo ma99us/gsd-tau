@@ -1,12 +1,13 @@
 // Logger must be the first import — initialises file transport and overrides
 // console.* so all subsequent output is captured to %APPDATA%\gsd-tau\logs\main.log.
 import './logger'
-import { app, BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen, webContents as electronWebContents } from 'electron'
 import { join, dirname } from 'path'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { SessionManager } from './session/session-manager'
 import { RegistryStore } from './persistence/registry-store'
 import { registerHandlers, PUSH, parseOpenProjectArg } from './ipc/handlers'
+import { QuotaService } from './services/quota-service'
 import { showBlockerToast } from './os/notifications'
 import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
 import { clampBoundsToDisplays } from './window/clamp-bounds'
@@ -315,6 +316,16 @@ if (!gotSingleInstanceLock) {
     console.log(`[startup] registry loaded: ${registry.sessions.length} session(s), ${Object.keys(registry.sessionHistory ?? {}).length} history entries`)
     sessionManager.initHistory(registry.sessionHistory ?? {})
 
+    // ── QuotaService ──────────────────────────────────────────────────────────
+    const dataDir = join(
+      process.env['APPDATA'] ?? app.getPath('userData'),
+      'gsd-tau',
+    )
+    const quotaService = new QuotaService(
+      dataDir,
+      () => electronWebContents.getAllWebContents(),
+    )
+
     let _winId = ''
     const { cleanup: cleanupHandlers, handleOpenProject } = registerHandlers(
       sessionManager,
@@ -322,11 +333,15 @@ if (!gotSingleInstanceLock) {
       showBlockerToast,
       registryStore,
       () => _winId,
+      quotaService,
     )
     _handleOpenProject = handleOpenProject
     // Remove IPC handlers when the app fully quits so Electron does not warn
     // about lingering handlers after the main process tears down.
     app.once('will-quit', () => cleanupHandlers())
+
+    quotaService.start()
+    app.once('will-quit', () => quotaService.stop())
 
     // Restore saved window bounds, clamped to visible screen area.
     // Use the first persisted window record if available; default 1200×800 on

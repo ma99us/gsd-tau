@@ -380,6 +380,25 @@ export interface QuotaHistoryEntry {
 }
 
 /**
+ * Payload pushed to the renderer when the GitHub device-code auth flow begins.
+ * The renderer displays the user-facing code and verification URL in a modal.
+ * Defined in shared/types so both preload and renderer can consume it without
+ * importing from the main-process quota-service module.
+ */
+export interface DeviceCodeInfo {
+  /** The code the user must enter at the verification URL. */
+  userCode: string
+  /** URL where the user enters the code (e.g. https://github.com/login/device). */
+  verificationUri: string
+  /** Seconds until the code expires. */
+  expiresIn: number
+  /** Recommended polling interval in seconds. */
+  interval: number
+  /** Internal device code used to poll for the access token. */
+  deviceCode: string
+}
+
+/**
  * Root registry schema v1.
  * The `version` literal enables future schema migration — never widen it
  * without bumping the value and writing a migration in RegistryStore.

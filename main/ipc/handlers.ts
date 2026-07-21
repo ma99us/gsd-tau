@@ -2,7 +2,8 @@ import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } fr
 import type { WebContents } from 'electron'
 import { basename } from 'node:path'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel } from '../../shared/types'
+import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot } from '../../shared/types'
+import type { QuotaService } from '../services/quota-service'
 import { BlockerTracker } from '../session/blocker-tracker'
 import { SessionStateMachine } from '../session/state-machine'
 import type {
@@ -67,6 +68,19 @@ export const IPC = {
    * Returns the CompactionResult on success, null on error.
    */
   COMPACT: 'compact',
+
+  // ---------------------------------------------------------------------------
+  // Copilot quota
+  // ---------------------------------------------------------------------------
+
+  /** Fetch the latest cached quota snapshot (unauthenticated → null). */
+  GET_QUOTA: 'getQuota',
+  /** Trigger an immediate on-demand quota refresh. */
+  REFRESH_QUOTA: 'refreshQuota',
+  /** Start the GitHub device-code OAuth flow. */
+  START_QUOTA_AUTH: 'startQuotaAuth',
+  /** Remove gh-auth.json and disconnect the quota account. */
+  DISCONNECT_QUOTA_AUTH: 'disconnectQuotaAuth',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -90,6 +104,16 @@ export const PUSH = {
    * blocking overlay while the main process shuts down all sessions.
    */
   APP_CLOSING: 'app:closing',
+  /**
+   * Broadcast whenever a fresh QuotaSnapshot is available.
+   * Value matches QUOTA_UPDATE_CHANNEL exported from quota-service.ts.
+   */
+  QUOTA_UPDATE: 'quota:update',
+  /**
+   * Broadcast once when the GitHub device-code flow begins, so the renderer
+   * can display the user-facing code and verification URL in a modal.
+   */
+  QUOTA_DEVICE_CODE: 'quota:device-code',
 } as const
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -280,6 +304,7 @@ export function registerHandlers(
   showBlockerToastFn: ShowBlockerToastFn = () => {},
   registryStore?: RegistryStore,
   getWinId?: () => string,
+  quotaService?: QuotaService,
 ): { cleanup: () => void; handleOpenProject: (cwd: string) => Promise<SessionId> } {
   const getWc: GetAllWebContents =
     getAllWebContents ?? (() => electronWebContents.getAllWebContents())
@@ -359,6 +384,11 @@ export function registerHandlers(
         const machineEvent = STATE_TRANSITIONS[ev.type]
         if (machineEvent) {
           machine.feed(machineEvent)
+          // After a session ends, give the quota service a chance to fetch
+          // fresh usage data (subject to its own 5-min debounce).
+          if (machineEvent === 'agent_end' && quotaService) {
+            quotaService.onAgentEnd()
+          }
         }
 
         // extension_ui_request handling.
@@ -718,6 +748,35 @@ export function registerHandlers(
     },
   )
 
+  // ── getQuota ──────────────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.GET_QUOTA, (): QuotaSnapshot | null => {
+    return quotaService?.getLastSnapshot() ?? null
+  })
+
+  // ── refreshQuota ─────────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.REFRESH_QUOTA,
+    async (): Promise<QuotaSnapshot | null> => {
+      return quotaService?.refreshNow() ?? null
+    },
+  )
+
+  // ── startQuotaAuth ───────────────────────────────────────────────────────────
+  ipcMain.handle(IPC.START_QUOTA_AUTH, async (): Promise<void> => {
+    if (!quotaService) {
+      console.warn('[handlers] startQuotaAuth: quota service not available')
+      return
+    }
+    await quotaService.startDeviceCodeFlow((info) => {
+      fanOut(getWc, PUSH.QUOTA_DEVICE_CODE, info)
+    })
+  })
+
+  // ── disconnectQuotaAuth ──────────────────────────────────────────────────────
+  ipcMain.handle(IPC.DISCONNECT_QUOTA_AUTH, async (): Promise<void> => {
+    await quotaService?.disconnect()
+  })
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -739,6 +798,10 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.GET_SESSION_STATS)
     ipcMain.removeHandler(IPC.SET_THINKING_LEVEL)
     ipcMain.removeHandler(IPC.COMPACT)
+    ipcMain.removeHandler(IPC.GET_QUOTA)
+    ipcMain.removeHandler(IPC.REFRESH_QUOTA)
+    ipcMain.removeHandler(IPC.START_QUOTA_AUTH)
+    ipcMain.removeHandler(IPC.DISCONNECT_QUOTA_AUTH)
 
     for (const [, entry] of sessions) {
       entry.cleanup()
