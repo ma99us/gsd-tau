@@ -1,21 +1,21 @@
 {
   "nodes": [
     {
-      "id": "milestone:M003",
-      "label": "M003: UI-request Bridge",
+      "id": "milestone:M004",
+      "label": "M004: Multi-project Tabs, Persistence, Resume",
       "type": "milestone",
-      "description": "Active milestone: M003",
+      "description": "Active milestone: M004",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     },
     {
-      "id": "concept:phase:validating-milestone",
-      "label": "Phase: validating-milestone",
+      "id": "concept:phase:evaluating-gates",
+      "label": "Phase: evaluating-gates",
       "type": "concept",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     }
   ],
   "edges": [],
-  "builtAt": "2026-07-20T21:00:59.920Z"
+  "builtAt": "2026-07-21T12:43:07.706Z"
 }

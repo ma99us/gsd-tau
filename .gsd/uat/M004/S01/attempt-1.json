@@ -1,0 +1,120 @@
+{
+  "runId": "uat:M004:S01:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M004",
+  "sliceId": "S01",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-21T12:44:23.402Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "UAT-01",
+      "description": "Smoke test: pnpm vitest run registry-store.test.ts — all 22 tests must pass",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "fbd735d3-f5fa-49aa-a75a-aac958ac2623"
+        }
+      ],
+      "notes": "22 passed (22). 1 test file, duration 557ms. All round-trip, .bak fallback, orphaned .tmp, debounce, and edge cases green."
+    },
+    {
+      "id": "UAT-02",
+      "description": "tsc --noEmit reports no errors on shared/types.ts imports",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "a8e447f4-c2f4-438e-946d-643d2f8784b9"
+        }
+      ],
+      "notes": "npx tsc --noEmit exited 0 with no output."
+    },
+    {
+      "id": "UAT-03",
+      "description": "registry.json written with .bak sibling after first save+flush; RegistryV1/SessionRecord/WindowRecord types defined in shared/types.ts",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "251f4e47-22eb-4c34-a8af-18fe08a978a2"
+        }
+      ],
+      "notes": "15 .bak references in test file confirming .bak creation/fallback coverage. RegistryV1, SessionRecord, WindowRecord all defined in shared/types.ts."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 22 Vitest tests passed, tsc --noEmit reported no errors, and .bak/types artifacts confirmed present."
+}

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { RpcClient, SdkAgentEvent } from '@opengsd/rpc-client'
 import { SessionManager } from './session-manager'
+import type { RegistryStoreLike } from './session-manager'
 import { SessionHandle } from './session-handle'
+import type { RegistryV1 } from '../../shared/types'
 
 // ── mock helpers ──────────────────────────────────────────────────────────────
 
@@ -11,10 +13,6 @@ import { SessionHandle } from './session-handle'
  * The `events()` generator blocks indefinitely so the SessionHandle event pump
  * stays in `'running'` state during tests (matches real behaviour where a live
  * pi process streams events until stopped).
- *
- * When `stop()` is called, `_stoppedResolve` fires so callers can await pump
- * termination if needed — but SessionHandle.stop() doesn't await the pump, so
- * most tests just need `stop()` to resolve quickly.
  *
  * @param shutdownDelay  Optional ms before `shutdown()` resolves (0 = immediate).
  *                       Pass `Infinity` for a never-resolving shutdown promise.
@@ -51,6 +49,20 @@ function makeMockClient(opts?: { shutdownDelay?: number }): RpcClient {
 /** Return a vi.fn() createClient factory that resolves with the given client. */
 function makeFactory(client: RpcClient) {
   return vi.fn<(opts: { cwd: string }) => Promise<RpcClient>>().mockResolvedValue(client)
+}
+
+/**
+ * A factory that creates a fresh mock client for each invocation.
+ * Use when opening multiple concurrent sessions so each gets its own spy.
+ */
+function makeMultiFactory() {
+  return vi.fn<(opts: { cwd: string }) => Promise<RpcClient>>()
+    .mockImplementation(() => Promise.resolve(makeMockClient()))
+}
+
+/** Build a minimal RegistryStoreLike stub for spying on saves. */
+function makeRegistryStore(): RegistryStoreLike & { save: ReturnType<typeof vi.fn> } {
+  return { save: vi.fn<(reg: RegistryV1) => void>() }
 }
 
 // ── tests ─────────────────────────────────────────────────────────────────────
@@ -91,13 +103,15 @@ describe('SessionManager', () => {
     })
 
     it('generates a unique id on each successive open', async () => {
-      const h1 = await mgr.open('/proj/a')
-      await mgr.close(h1.sessionId)
+      const multiFactory = makeMultiFactory()
+      const mgr2 = new SessionManager({ createClient: multiFactory })
 
-      const h2 = await mgr.open('/proj/b')
-      await mgr.close(h2.sessionId)
-
+      const h1 = await mgr2.open('/proj/a')
+      const h2 = await mgr2.open('/proj/b')
       expect(h1.sessionId).not.toBe(h2.sessionId)
+
+      await mgr2.close(h1.sessionId)
+      await mgr2.close(h2.sessionId)
     })
 
     it('starts the handle so clientState is "running"', async () => {
@@ -111,16 +125,18 @@ describe('SessionManager', () => {
       expect(mgr.get(handle.sessionId)).toBe(handle)
     })
 
-    it('throws (Phase-1 limit) when a session is already active', async () => {
-      await mgr.open('/proj/a')
-      await expect(mgr.open('/proj/b')).rejects.toThrow('Phase-1 restriction')
-    })
+    it('allows a second open while the first session is still active', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr2 = new SessionManager({ createClient: multiFactory })
 
-    it('allows a second open after the first session is closed', async () => {
-      const h1 = await mgr.open('/proj/a')
-      await mgr.close(h1.sessionId)
-      const h2 = await mgr.open('/proj/b')
+      const h1 = await mgr2.open('/proj/a')
+      const h2 = await mgr2.open('/proj/b')
+
       expect(h2).toBeInstanceOf(SessionHandle)
+      expect(h1.sessionId).not.toBe(h2.sessionId)
+
+      await mgr2.close(h1.sessionId)
+      await mgr2.close(h2.sessionId)
     })
 
     it('propagates a factory rejection', async () => {
@@ -153,6 +169,316 @@ describe('SessionManager', () => {
       const handle = await mgr.open('/proj/a')
       await mgr.close(handle.sessionId)
       expect(mgr.get(handle.sessionId)).toBeUndefined()
+    })
+  })
+
+  // ── list() ────────────────────────────────────────────────────────────────
+
+  describe('list()', () => {
+    it('returns an empty array when no sessions are open', () => {
+      expect(mgr.list()).toHaveLength(0)
+    })
+
+    it('returns one record after one open()', async () => {
+      const handle = await mgr.open('/proj/a')
+      const records = mgr.list()
+      expect(records).toHaveLength(1)
+      expect(records[0]!.id).toBe(handle.sessionId)
+    })
+
+    it('record carries correct cwd and displayName', async () => {
+      await mgr.open('/proj/my-app')
+      const [rec] = mgr.list()
+      expect(rec!.cwd).toBe('/proj/my-app')
+      expect(rec!.displayName).toBe('my-app')
+    })
+
+    it('record carries a valid ISO lastOpenedAt timestamp', async () => {
+      await mgr.open('/proj/a')
+      const [rec] = mgr.list()
+      expect(() => new Date(rec!.lastOpenedAt)).not.toThrow()
+      expect(new Date(rec!.lastOpenedAt).getTime()).not.toBeNaN()
+    })
+
+    it('record starts with wasAutoRunning = false', async () => {
+      await mgr.open('/proj/a')
+      const [rec] = mgr.list()
+      expect(rec!.wasAutoRunning).toBe(false)
+    })
+
+    it('returns a snapshot — mutations to the returned array do not affect the manager', async () => {
+      await mgr.open('/proj/a')
+      const records = mgr.list()
+      records.splice(0) // mutate the snapshot
+      expect(mgr.list()).toHaveLength(1)
+    })
+  })
+
+  // ── multi-session (3 concurrent sessions) ─────────────────────────────────
+
+  describe('multi-session', () => {
+    it('tracks all 3 sessions after opening them concurrently', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr3 = new SessionManager({ createClient: multiFactory })
+
+      const [h1, h2, h3] = await Promise.all([
+        mgr3.open('/proj/alpha'),
+        mgr3.open('/proj/beta'),
+        mgr3.open('/proj/gamma'),
+      ])
+
+      expect(mgr3.activeSessions).toHaveLength(3)
+      expect(mgr3.list()).toHaveLength(3)
+
+      // All handles are accessible via get()
+      expect(mgr3.get(h1.sessionId)).toBe(h1)
+      expect(mgr3.get(h2.sessionId)).toBe(h2)
+      expect(mgr3.get(h3.sessionId)).toBe(h3)
+
+      await mgr3.close(h1.sessionId)
+      await mgr3.close(h2.sessionId)
+      await mgr3.close(h3.sessionId)
+    })
+
+    it('list() contains records for all 3 sessions', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr3 = new SessionManager({ createClient: multiFactory })
+
+      const [h1, h2, h3] = await Promise.all([
+        mgr3.open('/proj/alpha'),
+        mgr3.open('/proj/beta'),
+        mgr3.open('/proj/gamma'),
+      ])
+
+      const ids = mgr3.list().map((r) => r.id)
+      expect(ids).toContain(h1.sessionId)
+      expect(ids).toContain(h2.sessionId)
+      expect(ids).toContain(h3.sessionId)
+
+      await mgr3.close(h1.sessionId)
+      await mgr3.close(h2.sessionId)
+      await mgr3.close(h3.sessionId)
+    })
+
+    it('closing one session shrinks the map to 2', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr3 = new SessionManager({ createClient: multiFactory })
+
+      const [h1, h2, h3] = await Promise.all([
+        mgr3.open('/proj/alpha'),
+        mgr3.open('/proj/beta'),
+        mgr3.open('/proj/gamma'),
+      ])
+
+      await mgr3.close(h2.sessionId)
+
+      expect(mgr3.activeSessions).toHaveLength(2)
+      expect(mgr3.list()).toHaveLength(2)
+      expect(mgr3.get(h2.sessionId)).toBeUndefined()
+
+      // Other two still accessible
+      expect(mgr3.get(h1.sessionId)).toBe(h1)
+      expect(mgr3.get(h3.sessionId)).toBe(h3)
+
+      await mgr3.close(h1.sessionId)
+      await mgr3.close(h3.sessionId)
+    })
+
+    it('ids are all unique across 3 concurrent opens', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr3 = new SessionManager({ createClient: multiFactory })
+
+      const handles = await Promise.all([
+        mgr3.open('/proj/a'),
+        mgr3.open('/proj/b'),
+        mgr3.open('/proj/c'),
+      ])
+
+      const ids = handles.map((h) => h.sessionId)
+      const unique = new Set(ids)
+      expect(unique.size).toBe(3)
+
+      for (const h of handles) await mgr3.close(h.sessionId)
+    })
+  })
+
+  // ── rename() ──────────────────────────────────────────────────────────────
+
+  describe('rename()', () => {
+    it('updates displayName in list()', async () => {
+      const handle = await mgr.open('/proj/my-app')
+      mgr.rename(handle.sessionId, 'My Renamed App')
+
+      const [rec] = mgr.list()
+      expect(rec!.displayName).toBe('My Renamed App')
+    })
+
+    it('is reflected in getRegistry() sessions', async () => {
+      const handle = await mgr.open('/proj/my-app')
+      mgr.rename(handle.sessionId, 'Pretty Name')
+
+      const reg = mgr.getRegistry()
+      const session = reg.sessions.find((s) => s.id === handle.sessionId)
+      expect(session?.displayName).toBe('Pretty Name')
+    })
+
+    it('no-op for unknown id — does not throw', () => {
+      expect(() => mgr.rename('s_does_not_exist', 'anything')).not.toThrow()
+    })
+
+    it('does not affect other sessions', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr2 = new SessionManager({ createClient: multiFactory })
+
+      const h1 = await mgr2.open('/proj/a')
+      const h2 = await mgr2.open('/proj/b')
+
+      mgr2.rename(h1.sessionId, 'Renamed A')
+
+      const rec2 = mgr2.list().find((r) => r.id === h2.sessionId)
+      expect(rec2?.displayName).toBe('b')
+
+      await mgr2.close(h1.sessionId)
+      await mgr2.close(h2.sessionId)
+    })
+  })
+
+  // ── getRegistry() ─────────────────────────────────────────────────────────
+
+  describe('getRegistry()', () => {
+    it('returns version: 1', async () => {
+      await mgr.open('/proj/a')
+      expect(mgr.getRegistry().version).toBe(1)
+    })
+
+    it('sessions array matches list()', async () => {
+      await mgr.open('/proj/a')
+      const reg = mgr.getRegistry()
+      expect(reg.sessions).toEqual(mgr.list())
+    })
+
+    it('mruOrder contains session ids', async () => {
+      const handle = await mgr.open('/proj/a')
+      const reg = mgr.getRegistry()
+      expect(reg.mruOrder).toContain(handle.sessionId)
+    })
+
+    it('windows is an empty array', async () => {
+      await mgr.open('/proj/a')
+      expect(mgr.getRegistry().windows).toEqual([])
+    })
+
+    it('reflects 3 sessions opened simultaneously', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr3 = new SessionManager({ createClient: multiFactory })
+
+      const handles = await Promise.all([
+        mgr3.open('/proj/a'),
+        mgr3.open('/proj/b'),
+        mgr3.open('/proj/c'),
+      ])
+
+      const reg = mgr3.getRegistry()
+      expect(reg.sessions).toHaveLength(3)
+      expect(reg.mruOrder).toHaveLength(3)
+
+      for (const h of handles) await mgr3.close(h.sessionId)
+    })
+
+    it('after rename, getRegistry() shows updated displayName', async () => {
+      const handle = await mgr.open('/proj/cool-project')
+      mgr.rename(handle.sessionId, 'Cool Project (renamed)')
+
+      const reg = mgr.getRegistry()
+      const sess = reg.sessions.find((s) => s.id === handle.sessionId)!
+      expect(sess.displayName).toBe('Cool Project (renamed)')
+    })
+  })
+
+  // ── registry save integration ─────────────────────────────────────────────
+
+  describe('registryStore integration', () => {
+    it('save() is called on open()', async () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      await mgr2.open('/proj/a')
+      expect(store.save).toHaveBeenCalled()
+    })
+
+    it('save() is called on close()', async () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      const handle = await mgr2.open('/proj/a')
+      store.save.mockClear()
+
+      await mgr2.close(handle.sessionId)
+      expect(store.save).toHaveBeenCalled()
+    })
+
+    it('save() is called on rename()', async () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      const handle = await mgr2.open('/proj/a')
+      store.save.mockClear()
+
+      mgr2.rename(handle.sessionId, 'New Name')
+      expect(store.save).toHaveBeenCalled()
+    })
+
+    it('save() receives a RegistryV1 with version: 1', async () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      await mgr2.open('/proj/a')
+
+      const lastCall = store.save.mock.calls.at(-1)!
+      expect(lastCall[0].version).toBe(1)
+    })
+
+    it('no save() when registryStore is not provided', async () => {
+      // mgr has no registryStore — should not throw
+      const handle = await mgr.open('/proj/a')
+      mgr.rename(handle.sessionId, 'x')
+      await mgr.close(handle.sessionId)
+      // nothing to assert — just verifying no throw
+    })
+
+    it('save() is triggered by agent_start event (wasAutoRunning tracking)', async () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      const handle = await mgr2.open('/proj/a')
+      store.save.mockClear()
+
+      // Emit agent_start from the handle — simulates pi starting auto-mode
+      handle.emit('agent_start', { type: 'agent_start' })
+      expect(store.save).toHaveBeenCalled()
+
+      // Verify wasAutoRunning flipped to true in the snapshot
+      const lastCall = store.save.mock.calls.at(-1)!
+      expect(lastCall[0].sessions[0]!.wasAutoRunning).toBe(true)
+
+      await mgr2.close(handle.sessionId)
+    })
+
+    it('save() is triggered by agent_end event and wasAutoRunning resets', async () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      const handle = await mgr2.open('/proj/a')
+      handle.emit('agent_start', { type: 'agent_start' })
+      store.save.mockClear()
+
+      handle.emit('agent_end', { type: 'agent_end' })
+      expect(store.save).toHaveBeenCalled()
+
+      const lastCall = store.save.mock.calls.at(-1)!
+      expect(lastCall[0].sessions[0]!.wasAutoRunning).toBe(false)
+
+      await mgr2.close(handle.sessionId)
     })
   })
 
@@ -262,12 +588,23 @@ describe('SessionManager', () => {
       expect(mgr.activeSessions).toHaveLength(0)
     })
 
-    it('reflects the current active session count (at most 1 in Phase 1)', async () => {
-      expect(mgr.activeSessions).toHaveLength(0)
-      const handle = await mgr.open('/proj/a')
-      expect(mgr.activeSessions).toHaveLength(1)
-      await mgr.close(handle.sessionId)
-      expect(mgr.activeSessions).toHaveLength(0)
+    it('reflects the current active session count across multiple opens', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr2 = new SessionManager({ createClient: multiFactory })
+
+      expect(mgr2.activeSessions).toHaveLength(0)
+
+      const h1 = await mgr2.open('/proj/a')
+      expect(mgr2.activeSessions).toHaveLength(1)
+
+      const h2 = await mgr2.open('/proj/b')
+      expect(mgr2.activeSessions).toHaveLength(2)
+
+      await mgr2.close(h1.sessionId)
+      expect(mgr2.activeSessions).toHaveLength(1)
+
+      await mgr2.close(h2.sessionId)
+      expect(mgr2.activeSessions).toHaveLength(0)
     })
   })
 
@@ -299,9 +636,30 @@ describe('SessionManager', () => {
       // No active sessions left after the failure.
       expect(mgr2.activeSessions).toHaveLength(0)
 
-      // Second call succeeds — Phase-1 slot is not consumed by failed open.
+      // Second call succeeds — slot is not consumed by failed open.
       const handle = await mgr2.open('/proj/ok')
       expect(handle).toBeInstanceOf(SessionHandle)
+    })
+
+    it('rename() no-op for unknown id does not trigger registryStore.save()', () => {
+      const store = makeRegistryStore()
+      const mgr2 = new SessionManager({ createClient: factory, registryStore: store })
+
+      mgr2.rename('s_missing', 'whatever')
+      expect(store.save).not.toHaveBeenCalled()
+    })
+
+    it('list() after all sessions closed returns empty array', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr2 = new SessionManager({ createClient: multiFactory })
+
+      const h1 = await mgr2.open('/proj/a')
+      const h2 = await mgr2.open('/proj/b')
+
+      await mgr2.close(h1.sessionId)
+      await mgr2.close(h2.sessionId)
+
+      expect(mgr2.list()).toHaveLength(0)
     })
   })
 })

@@ -12,7 +12,7 @@
 
 ## Slices
 
-- [ ] **S01: Registry Store and Schema Types** `risk:medium` `depends:[]`
+- [x] **S01: Registry Store and Schema Types** `risk:medium` `depends:[]`
   > After this: Unit tests: write registry, kill process mid-write, relaunch reads .bak, no data loss.
 
 - [ ] **S02: Multi-session SessionManager and Registry Integration** `risk:high` `depends:[S01]`

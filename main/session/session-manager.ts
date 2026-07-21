@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
+import path from 'node:path'
 import type { RpcClient } from '@opengsd/rpc-client'
-import type { SessionId } from '../../shared/types'
+import type { SessionId, SessionRecord, RegistryV1 } from '../../shared/types'
 import { SessionHandle } from './session-handle'
 import { createClient } from '../pi/client-factory'
 import type { CreateClientOptions } from '../pi/client-factory'
@@ -18,15 +19,33 @@ const SHUTDOWN_TIMEOUT_MS = 3_000
  */
 export type ClientFactory = (opts: CreateClientOptions) => Promise<RpcClient>
 
+/**
+ * Minimal interface for registry persistence.
+ * Lets tests inject a stub without requiring a real filesystem.
+ */
+export interface RegistryStoreLike {
+  save(registry: RegistryV1): void
+}
+
 interface ActiveSession {
   handle: SessionHandle
   client: RpcClient
+  cwd: string
+  displayName: string
+  wasAutoRunning: boolean
+  lastOpenedAt: string
+  sessionFile?: string
   /**
    * Optional hook called immediately before close() stops the event pump.
    * Registered by the IPC layer to cancel open UI-request blockers so pi
    * does not hang waiting for a response after the session closes.
    */
   preShutdownHook?: () => Promise<void>
+  /**
+   * Removes state-change event listeners wired up during open().
+   * Called during close() to avoid memory leaks.
+   */
+  _removeStateListeners: () => void
 }
 
 // ── SessionManager ────────────────────────────────────────────────────────────
@@ -34,25 +53,32 @@ interface ActiveSession {
 /**
  * Owns the lifecycle of all pi sessions in the main process.
  *
- * Phase-1 restriction: only one session may be open at a time.
- * Calling `open()` while a session is already active throws immediately.
+ * Phase-4 upgrade: supports N concurrent sessions.
+ * Each session receives a stable id (`s_` + 12-char base64url).
+ * Every open/close/rename/state-change triggers a debounced registry save
+ * via the optional injected {@link RegistryStoreLike}.
  *
  * Usage
  * -----
  * ```ts
- * const mgr = new SessionManager()
+ * const mgr = new SessionManager({ registryStore })
  *
- * const handle = await mgr.open('D:/my-project')
- * const same   = mgr.get(handle.sessionId)   // same reference
- * await mgr.close(handle.sessionId)           // graceful teardown
+ * const h1 = await mgr.open('D:/project-a')
+ * const h2 = await mgr.open('D:/project-b')
+ * mgr.list()                          // [SessionRecord, SessionRecord]
+ * mgr.rename(h1.sessionId, 'My App')
+ * mgr.getRegistry()                   // RegistryV1 snapshot
+ * await mgr.close(h1.sessionId)
  * ```
  */
 export class SessionManager {
   private readonly _createClient: ClientFactory
+  private readonly _registryStore: RegistryStoreLike | null
   private readonly _sessions = new Map<SessionId, ActiveSession>()
 
-  constructor(opts?: { createClient?: ClientFactory }) {
+  constructor(opts?: { createClient?: ClientFactory; registryStore?: RegistryStoreLike }) {
     this._createClient = opts?.createClient ?? createClient
+    this._registryStore = opts?.registryStore ?? null
   }
 
   // ── public API ──────────────────────────────────────────────────────────────
@@ -61,35 +87,62 @@ export class SessionManager {
    * Open a new pi session for the given working directory.
    *
    * Sequence:
-   * 1. Enforce the Phase-1 single-session limit.
-   * 2. Call the client factory to spawn + initialise pi.
-   * 3. Assign a stable session ID (`s_` + 12-char base64url).
-   * 4. Construct a {@link SessionHandle} and start its event pump.
-   * 5. Register the session and return the handle.
+   * 1. Call the client factory to spawn + initialise pi.
+   * 2. Assign a stable session ID (`s_` + 12-char base64url).
+   * 3. Construct a {@link SessionHandle} and start its event pump.
+   * 4. Wire state-change listeners for `wasAutoRunning` tracking.
+   * 5. Register the session, persist registry, and return the handle.
    *
    * @param cwd  Working directory for the pi session.
    * @returns    A started {@link SessionHandle} with a stable session ID.
-   * @throws     `Error`                  Phase-1 limit: a session is already active.
-   * @throws     `ResolvePiError`         gsd binary not found.
-   * @throws     `ClientInitError`        pi handshake failed.
+   * @throws     `ResolvePiError`   gsd binary not found.
+   * @throws     `ClientInitError`  pi handshake failed.
    */
   async open(cwd: string): Promise<SessionHandle> {
-    if (this._sessions.size > 0) {
-      throw new Error(
-        'SessionManager.open(): Phase-1 restriction — only one session at a time. ' +
-          'Close the active session before opening a new one.',
-      )
-    }
-
     const client = await this._createClient({ cwd })
 
     // 9 random bytes → 12-char base64url (same entropy as nanoid(12), no extra dep).
     const id: SessionId = 's_' + randomBytes(9).toString('base64url')
+    const displayName = path.basename(cwd) || cwd
 
     const handle = new SessionHandle(client, id)
-    this._sessions.set(id, { handle, client })
 
+    // Closure reference so listeners can mutate entry before it's inserted.
+    const entry: ActiveSession = {
+      handle,
+      client,
+      cwd,
+      displayName,
+      wasAutoRunning: false,
+      lastOpenedAt: new Date().toISOString(),
+      _removeStateListeners: () => { /* replaced below */ },
+    }
+
+    // Track auto-run state: agent_start → running, agent_end/execution_complete → stopped.
+    const onAgentStart = () => {
+      entry.wasAutoRunning = true
+      this._scheduleRegistrySave()
+    }
+    const onSessionEnd = () => {
+      entry.wasAutoRunning = false
+      this._scheduleRegistrySave()
+    }
+
+    handle.on('agent_start', onAgentStart)
+    handle.on('agent_end', onSessionEnd)
+    handle.on('execution_complete', onSessionEnd)
+
+    entry._removeStateListeners = () => {
+      handle.off('agent_start', onAgentStart)
+      handle.off('agent_end', onSessionEnd)
+      handle.off('execution_complete', onSessionEnd)
+    }
+
+    this._sessions.set(id, entry)
     handle.start()
+
+    console.log(`[SessionManager] opened session ${id} for "${cwd}" (total: ${this._sessions.size})`)
+    this._scheduleRegistrySave()
 
     return handle
   }
@@ -101,6 +154,52 @@ export class SessionManager {
    */
   get(id: SessionId): SessionHandle | undefined {
     return this._sessions.get(id)?.handle
+  }
+
+  /**
+   * Return a snapshot of all active sessions as {@link SessionRecord} objects.
+   * The array order matches insertion order (Map iteration order).
+   */
+  list(): SessionRecord[] {
+    return [...this._sessions.values()].map((entry) => this._toRecord(entry))
+  }
+
+  /**
+   * Rename a session's display label.
+   *
+   * No-op when `id` is unknown (safe to call speculatively).
+   * Triggers a debounced registry save on success.
+   *
+   * @param id    Stable session identifier.
+   * @param name  New human-readable display name.
+   */
+  rename(id: SessionId, name: string): void {
+    const entry = this._sessions.get(id)
+    if (!entry) return
+
+    const prev = entry.displayName
+    entry.displayName = name
+
+    console.log(`[SessionManager] session ${id} renamed "${prev}" → "${name}"`)
+    this._scheduleRegistrySave()
+  }
+
+  /**
+   * Build a {@link RegistryV1} snapshot from the current live session state.
+   *
+   * - `sessions` reflects all open sessions with their latest metadata.
+   * - `windows` is left empty — managed by the renderer/IPC window layer.
+   * - `mruOrder` lists session ids in insertion order (most-recently-opened last
+   *   is not tracked here; callers may reorder as needed).
+   */
+  getRegistry(): RegistryV1 {
+    const sessions = this.list()
+    return {
+      version: 1,
+      sessions,
+      windows: [],
+      mruOrder: sessions.map((s) => s.id),
+    }
   }
 
   /**
@@ -183,10 +282,12 @@ export class SessionManager {
    *
    * Sequence:
    * 1. Remove from the internal map (prevents re-entrant double-close).
-   * 2. Run the pre-shutdown hook (cancel open UI-request blockers).
-   * 3. Call `client.shutdown()` with a 3 s timeout — pi receives a clean signal
+   * 2. Remove state-change event listeners.
+   * 3. Run the pre-shutdown hook (cancel open UI-request blockers).
+   * 4. Call `client.shutdown()` with a 3 s timeout — pi receives a clean signal
    *    while the transport is still live.
-   * 4. Call `handle.stop()` to drain the event pump and stop the transport.
+   * 5. Call `handle.stop()` to drain the event pump and stop the transport.
+   * 6. Persist the updated registry.
    *
    * Idempotent for unknown IDs — resolves immediately if `id` is not found.
    */
@@ -199,7 +300,10 @@ export class SessionManager {
 
     const { handle, client } = entry
     const closeStart = Date.now()
-    console.log(`[SessionManager] closing session ${id}`)
+    console.log(`[SessionManager] closing session ${id} (remaining: ${this._sessions.size})`)
+
+    // Remove state-change listeners — session is leaving.
+    entry._removeStateListeners()
 
     // Step 1: cancel open blockers before the pipe closes so pi can receive them.
     if (entry.preShutdownHook) {
@@ -247,6 +351,9 @@ export class SessionManager {
     console.log(
       `[SessionManager] session ${id} closed in ${Date.now() - closeStart}ms`,
     )
+
+    // Step 4: persist updated registry now that the session has been removed.
+    this._scheduleRegistrySave()
   }
 
   // ── diagnostics ─────────────────────────────────────────────────────────────
@@ -257,5 +364,30 @@ export class SessionManager {
    */
   get activeSessions(): SessionId[] {
     return [...this._sessions.keys()]
+  }
+
+  // ── private ──────────────────────────────────────────────────────────────────
+
+  /** Convert an internal ActiveSession entry to the serialisable SessionRecord shape. */
+  private _toRecord(entry: ActiveSession): SessionRecord {
+    return {
+      id: entry.handle.sessionId,
+      cwd: entry.cwd,
+      displayName: entry.displayName,
+      sessionFile: entry.sessionFile,
+      lastOpenedAt: entry.lastOpenedAt,
+      wasAutoRunning: entry.wasAutoRunning,
+    }
+  }
+
+  /**
+   * Snapshot the current session state and hand it to the registry store.
+   * The store itself debounces at 500 ms, so rapid mutations coalesce into
+   * a single disk write.
+   */
+  private _scheduleRegistrySave(): void {
+    if (this._registryStore) {
+      this._registryStore.save(this.getRegistry())
+    }
   }
 }
