@@ -7,7 +7,7 @@
  *   3. Quit the app (triggers the before-quit registry flush).
  *   4. Relaunch with the same APPDATA directory.
  *   5. Assert all 3 tabs restored by displayName.
- *   6. Assert the active tab is one of the 3 expected project names.
+ *   6. Assert the active tab is exactly project-c (last active before quit).
  *   7. Assert registry.json is valid JSON with 3 session entries.
  *   8. Repeat steps 3-7 for CYCLE_COUNT total cycles.
  *
@@ -28,10 +28,10 @@
  *   Electron window-close handler which calls `app.quit()`, which in turn
  *   fires the `before-quit` handler that flushes the registry to disk before
  *   closing sessions. `app.close()` then waits for the OS process to exit.
- * • Active-tab assertion: the renderer defaults the active tab to tabOrder[0]
- *   on relaunch (the WindowRecord.activeTabId field is not yet wired back
- *   from the renderer). The assertion checks that the active tab is one of
- *   the 3 expected names, not which specific one.
+ * • Active-tab assertion: after T02 wired the activeTabCwd persistence and
+ *   restore pipeline, the registry persists the CWD of the last-active tab
+ *   (project-c, the last one opened before quit) and the renderer restores
+ *   focus to that exact tab. The assertion now checks for exactly "project-c".
  *
  * Failure modes tested (Q7)
  * ─────────────────────────
@@ -281,23 +281,19 @@ test(
             timeout: 10_000,
           })
 
-          // ── Assert active tab is one of the 3 expected names ────────────
-          // Note: the active tab on relaunch defaults to tabOrder[0] (the
-          // first session returned by listSessions). We assert it is one of
-          // the 3 fixture names rather than a specific one, because the
-          // parallel restore does not guarantee insertion order.
+          // ── Assert active tab is exactly project-c ───────────────────────
+          // project-c was the last tab opened before the initial quit; the
+          // activeTabCwd field (wired by T02) persists and restores the
+          // active-tab CWD so the same project is re-selected on every relaunch.
           const activeTab = page
             .locator('[role="tab"][aria-selected="true"]')
             .first()
           await expect(activeTab).toBeVisible({ timeout: 5_000 })
           const activeTabText = await activeTab.innerText()
-          const activeIsExpected = FIXTURE_NAMES.some((n) =>
-            activeTabText.includes(n),
-          )
           expect(
-            activeIsExpected,
-            `Active tab "${activeTabText.trim()}" does not match any expected fixture name on cycle ${cycle}`,
-          ).toBe(true)
+            activeTabText.trim(),
+            `Active tab on cycle ${cycle} should be "project-c" (last active before quit)`,
+          ).toContain('project-c')
 
           // ── Assert registry is valid JSON with 3 sessions ───────────────
           const registry = readRegistry(tempAppData)
