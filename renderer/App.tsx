@@ -312,7 +312,7 @@ function App(): JSX.Element {
           }
         }}
         onReorder={() => { /* single-tab: no-op */ }}
-        onNewTab={() => { void handleBrowse() }}
+        onOpenProject={doOpen}
         onRename={(_, name) => { setDisplayName(name) }}
       />
       {/* Header */}

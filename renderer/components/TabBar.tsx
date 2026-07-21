@@ -8,6 +8,7 @@ import {
   type DragEvent,
 } from 'react'
 import type { SessionState } from '../../shared/types'
+import { OpenProjectFlyout } from './OpenProjectFlyout'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,8 @@ export interface TabBarProps {
   onSelect: (id: string) => void
   onClose: (id: string) => void
   onReorder: (fromIndex: number, toIndex: number) => void
-  onNewTab: () => void
+  /** Called when the user picks a project to open (from flyout, browse, or drag-drop). */
+  onOpenProject: (cwd: string) => void
   onRename: (id: string, newName: string) => void
 }
 
@@ -336,13 +338,41 @@ export function TabBar({
   onSelect,
   onClose,
   onReorder,
-  onNewTab,
+  onOpenProject,
   onRename,
 }: TabBarProps): JSX.Element {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [dragFromIndex, setDragFromIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [flyoutPos, setFlyoutPos] = useState<{ x: number; y: number } | null>(null)
+
+  /** Ref for the [+] button — used to anchor the Open Project flyout. */
+  const plusBtnRef = useRef<HTMLButtonElement>(null)
+
+  // ── Flyout open/close ─────────────────────────────────────────────────────
+
+  /** Opens the flyout anchored below the [+] button (or falls back to a fixed position). */
+  const openFlyout = useCallback((): void => {
+    if (plusBtnRef.current) {
+      const rect = plusBtnRef.current.getBoundingClientRect()
+      setFlyoutPos({ x: rect.left, y: rect.bottom + 4 })
+    } else {
+      setFlyoutPos({ x: Math.max(0, window.innerWidth - 340), y: 40 })
+    }
+  }, [])
+
+  /**
+   * Called when the flyout resolves to a project path.
+   * Closes the flyout immediately, then delegates to the parent.
+   */
+  const handleFlyoutOpen = useCallback(
+    (cwd: string): void => {
+      onOpenProject(cwd)
+      setFlyoutPos(null)
+    },
+    [onOpenProject],
+  )
 
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
   useEffect(() => {
@@ -353,7 +383,7 @@ export function TabBar({
 
       if (e.ctrlKey && !e.shiftKey && e.key === 't') {
         e.preventDefault()
-        onNewTab()
+        openFlyout()
         return
       }
 
@@ -393,7 +423,7 @@ export function TabBar({
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [tabs, activeId, onSelect, onClose, onNewTab])
+  }, [tabs, activeId, onSelect, onClose, openFlyout])
 
   // ── Context menu ──────────────────────────────────────────────────────────
   const openContextMenu = useCallback(
@@ -476,10 +506,11 @@ export function TabBar({
 
         {/* New-tab / plus button */}
         <button
+          ref={plusBtnRef}
           type="button"
           aria-label="New tab (Ctrl+T)"
           title="New tab (Ctrl+T)"
-          onClick={onNewTab}
+          onClick={openFlyout}
           className="flex h-full w-9 shrink-0 items-center justify-center
                      text-neutral-500 transition-colors
                      hover:bg-neutral-800 hover:text-neutral-300"
@@ -503,6 +534,15 @@ export function TabBar({
           onClose={() => setContextMenu(null)}
           onCloseTab={id => onClose(id)}
           onRenameTab={id => startRename(id)}
+        />
+      )}
+
+      {/* Open Project flyout — anchored below the [+] button */}
+      {flyoutPos !== null && (
+        <OpenProjectFlyout
+          position={flyoutPos}
+          onOpen={handleFlyoutOpen}
+          onClose={() => setFlyoutPos(null)}
         />
       )}
     </>
