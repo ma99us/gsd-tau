@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } fr
 import type { WebContents } from 'electron'
 import { basename } from 'node:path'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput } from '../../shared/types'
+import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo } from '../../shared/types'
 import { BlockerTracker } from '../session/blocker-tracker'
 import { SessionStateMachine } from '../session/state-machine'
 import type {
@@ -28,6 +28,17 @@ export const IPC = {
   LIST_SESSIONS: 'listSessions',
   CLOSE_SESSION: 'closeSession',
   RENAME_SESSION: 'renameSession',
+  /**
+   * Return all sessions whose project directories were not found at restore time.
+   * Renderer calls this during init() to catch races with the missing-path pushes.
+   */
+  LIST_MISSING_PATHS: 'listMissingPaths',
+  /**
+   * Reassign a missing-path session to a new directory and re-open it.
+   * Removes the old missing-path entry, opens pi at the new cwd, and returns
+   * the new session id.
+   */
+  REASSIGN_SESSION_CWD: 'reassignSessionCwd',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -41,6 +52,11 @@ export const PUSH = {
    * restored (or attempted).  Payload: {@link RestoreResult}.
    */
   RESTORE_COMPLETE: 'session:restore-complete',
+  /**
+   * Emitted once per missing-path session shortly before RESTORE_COMPLETE.
+   * Payload: {@link MissingPathInfo}.
+   */
+  MISSING_PATH: 'session:missing-path',
 } as const
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -524,6 +540,41 @@ export function registerHandlers(
     },
   )
 
+  // ── listMissingPaths ──────────────────────────────────────────────────────────
+  //
+  // Returns all sessions whose project directories were not found at restore time.
+  // The renderer calls this during init() to catch races where MISSING_PATH push
+  // events arrived before the subscription was set up.
+  ipcMain.handle(
+    IPC.LIST_MISSING_PATHS,
+    (_event): MissingPathInfo[] => manager.listMissingPaths(),
+  )
+
+  // ── reassignSessionCwd ────────────────────────────────────────────────────────
+  //
+  // Cleans up the missing-path tracking for `sessionId`, then opens a full pi
+  // session at the new `newCwd` path (wires state machine, tracker, shutdown
+  // hook, etc. via the shared doOpenProject helper).
+  //
+  // Returns the stable id of the newly opened session so the renderer can
+  // replace the phantom tab entry with the live one.
+  ipcMain.handle(
+    IPC.REASSIGN_SESSION_CWD,
+    async (
+      _event,
+      sessionId: SessionId,
+      newCwd: string,
+    ): Promise<{ newSessionId: SessionId }> => {
+      // Remove the missing-path entry before opening at the new location.
+      manager.removeMissingPath(sessionId)
+      const newSessionId = await doOpenProject(newCwd)
+      console.log(
+        `[handlers] reassign missing-path ${sessionId} → new session ${newSessionId} at "${newCwd}"`,
+      )
+      return { newSessionId }
+    },
+  )
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -538,6 +589,8 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.LIST_SESSIONS)
     ipcMain.removeHandler(IPC.CLOSE_SESSION)
     ipcMain.removeHandler(IPC.RENAME_SESSION)
+    ipcMain.removeHandler(IPC.LIST_MISSING_PATHS)
+    ipcMain.removeHandler(IPC.REASSIGN_SESSION_CWD)
 
     for (const [, entry] of sessions) {
       entry.cleanup()

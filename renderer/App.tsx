@@ -246,6 +246,7 @@ function App(): JSX.Element {
             sessionId={id}
             cwd={tab.cwd}
             isActive={id === activeTabId}
+            isMissingPath={tab.isMissingPath}
           />
         )
       })}

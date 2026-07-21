@@ -12,6 +12,7 @@ import type {
   ModelInfo,
   SessionRecord,
   RestoreResult,
+  MissingPathInfo,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -30,6 +31,8 @@ const IPC = {
   LIST_SESSIONS: 'listSessions',
   CLOSE_SESSION: 'closeSession',
   RENAME_SESSION: 'renameSession',
+  LIST_MISSING_PATHS: 'listMissingPaths',
+  REASSIGN_SESSION_CWD: 'reassignSessionCwd',
 } as const
 
 const PUSH = {
@@ -42,6 +45,11 @@ const PUSH = {
    * restored (or attempted).  Payload: {@link RestoreResult}.
    */
   RESTORE_COMPLETE: 'session:restore-complete',
+  /**
+   * Emitted once per missing-path session shortly before RESTORE_COMPLETE.
+   * Payload: {@link MissingPathInfo}.
+   */
+  MISSING_PATH: 'session:missing-path',
 } as const
 
 // ── GSD API factory ────────────────────────────────────────────────────────────
@@ -104,6 +112,15 @@ export function createGsdApi(): GsdApi {
 
     renameSession: (sessionId: SessionId, name: string): Promise<void> =>
       ipcRenderer.invoke(IPC.RENAME_SESSION, sessionId, name),
+
+    listMissingPaths: (): Promise<MissingPathInfo[]> =>
+      ipcRenderer.invoke(IPC.LIST_MISSING_PATHS),
+
+    reassignSessionCwd: (
+      sessionId: SessionId,
+      newCwd: string,
+    ): Promise<{ newSessionId: SessionId }> =>
+      ipcRenderer.invoke(IPC.REASSIGN_SESSION_CWD, sessionId, newCwd),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 
@@ -221,6 +238,24 @@ export function createGsdApi(): GsdApi {
       ipcRenderer.on(PUSH.RESTORE_COMPLETE, listener)
       return (): void => {
         ipcRenderer.off(PUSH.RESTORE_COMPLETE, listener)
+      }
+    },
+
+    /**
+     * Subscribe to `session:missing-path` pushes.
+     * One push per missing-path session fires shortly before `restore-complete`.
+     *
+     * @returns An unsubscribe function.  Calling it multiple times is safe.
+     */
+    onSessionMissingPath: (
+      cb: (info: MissingPathInfo) => void,
+    ): Unsubscribe => {
+      const listener = (_ev: IpcRendererEvent, info: MissingPathInfo): void => {
+        cb(info)
+      }
+      ipcRenderer.on(PUSH.MISSING_PATH, listener)
+      return (): void => {
+        ipcRenderer.off(PUSH.MISSING_PATH, listener)
       }
     },
   }

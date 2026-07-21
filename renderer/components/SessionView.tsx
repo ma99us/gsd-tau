@@ -50,6 +50,7 @@ import { ConfirmModal } from './modals/ConfirmModal'
 import { InputModal } from './modals/InputModal'
 import { EditorModal } from './modals/EditorModal'
 import { FallbackModal } from './modals/FallbackModal'
+import { MissingSessionBanner } from './MissingSessionBanner'
 import { useSessionsStore } from '../state/sessions-store'
 import { turnsReducer } from '../hooks/turnsReducer'
 import type { ToolItem } from '../hooks/turnsReducer'
@@ -81,11 +82,17 @@ export interface SessionViewProps {
   cwd: string
   /** Whether this view is the currently focused tab. Controls visibility. */
   isActive: boolean
+  /**
+   * True when this tab is a phantom entry for a session whose project directory
+   * was not found at restore time.  `MissingSessionBanner` replaces the stopped
+   * banner, and the Composer is disabled.
+   */
+  isMissingPath?: boolean
 }
 
 // ── SessionView ───────────────────────────────────────────────────────────────
 
-export function SessionView({ sessionId, cwd, isActive }: SessionViewProps): JSX.Element {
+export function SessionView({ sessionId, cwd, isActive, isMissingPath }: SessionViewProps): JSX.Element {
   // ── Session state (from the global store — already subscribed) ─────────────
   const sessionState = useSessionsStore((s) => s.sessions[sessionId]?.state ?? 'Idle')
 
@@ -377,12 +384,14 @@ export function SessionView({ sessionId, cwd, isActive }: SessionViewProps): JSX
         </div>
       </header>
 
-      {/* Stopped banner */}
-      {isStopped && (
+      {/* Missing-path banner replaces the stopped banner when the project dir is gone */}
+      {isMissingPath ? (
+        <MissingSessionBanner sessionId={sessionId} cwd={cwd} />
+      ) : isStopped ? (
         <div className="shrink-0 bg-red-950 px-4 py-2 text-xs text-red-400">
           ⚠ Session stopped — the pi process exited. New messages will not be sent.
         </div>
-      )}
+      ) : null}
 
       {/* Status bar — non-modal setStatus / setWidget / setTitle */}
       <StatusBar {...statusBarState} />
@@ -394,7 +403,7 @@ export function SessionView({ sessionId, cwd, isActive }: SessionViewProps): JSX
       <Composer
         onSend={(text) => void send(text)}
         sessionId={sessionId}
-        disabled={isWorking || isStopped}
+        disabled={isWorking || isStopped || !!isMissingPath}
       />
 
       {/* Inline toasts — fixed position, overlaid above composer */}

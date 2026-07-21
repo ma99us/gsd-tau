@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { RpcClient } from '@opengsd/rpc-client'
-import type { SessionId, SessionRecord, RegistryV1 } from '../../shared/types'
+import type { SessionId, SessionRecord, RegistryV1, MissingPathInfo } from '../../shared/types'
 import { SessionHandle } from './session-handle'
 import { createClient } from '../pi/client-factory'
 import type { CreateClientOptions } from '../pi/client-factory'
@@ -29,15 +30,21 @@ export interface RegistryStoreLike {
 
 /**
  * Result of a {@link SessionManager.restore} call.
- * Every record either produces a restored session id or a failure entry.
- * Failures are captured rather than thrown so the remaining records still
- * attempt to open.
+ * Every record either produces a restored session id, a failure entry, or a
+ * missing-path entry (cwd not found on disk).  Missing-path entries are never
+ * opened as pi sessions; they are tracked separately so the renderer can show
+ * a banner and let the user locate or remove them.
  */
 export interface RestoreResult {
   /** Stable IDs of sessions that were successfully opened. */
   restored: SessionId[]
   /** Records that failed to open, along with the causal error. */
   failed: Array<{ record: SessionRecord; error: unknown }>
+  /**
+   * Records whose project directories were not found on disk.
+   * No pi session is started for these — they are phantom tabs.
+   */
+  missingPath: MissingPathInfo[]
 }
 
 interface ActiveSession {
@@ -90,6 +97,13 @@ export class SessionManager {
   private readonly _createClient: ClientFactory
   private readonly _registryStore: RegistryStoreLike | null
   private readonly _sessions = new Map<SessionId, ActiveSession>()
+  /**
+   * Sessions whose project directories were not found during the most recent
+   * restore().  No pi process is running for these ids; they are tracked so the
+   * renderer can show a MissingSessionBanner and call reassignMissingPath() or
+   * close() to resolve them.
+   */
+  private readonly _missingPaths = new Map<SessionId, SessionRecord>()
 
   constructor(opts?: { createClient?: ClientFactory; registryStore?: RegistryStoreLike }) {
     this._createClient = opts?.createClient ?? createClient
@@ -182,11 +196,28 @@ export class SessionManager {
   async restore(records: SessionRecord[]): Promise<RestoreResult> {
     const restored: SessionId[] = []
     const failed: Array<{ record: SessionRecord; error: unknown }> = []
+    const missingPath: MissingPathInfo[] = []
 
     console.log(`[SessionManager] restoring ${records.length} session(s) from registry`)
 
     await Promise.all(
       records.map(async (record) => {
+        // Fast-path: skip open() if the project directory no longer exists.
+        // The session stays in _missingPaths so the renderer can show a banner.
+        if (!existsSync(record.cwd)) {
+          console.warn(
+            `[SessionManager] restore skipped "${record.cwd}": directory not found`,
+          )
+          const info: MissingPathInfo = {
+            sessionId: record.id,
+            cwd: record.cwd,
+            displayName: record.displayName,
+          }
+          missingPath.push(info)
+          this._missingPaths.set(record.id, record)
+          return
+        }
+
         try {
           const handle = await this.open(record.cwd)
           const entry = this._sessions.get(handle.sessionId)
@@ -226,9 +257,39 @@ export class SessionManager {
     console.log(
       `[SessionManager] restore complete: ${restored.length} restored, ${
         failed.length
-      } failed`,
+      } failed, ${missingPath.length} missing-path`,
     )
-    return { restored, failed }
+    return { restored, failed, missingPath }
+  }
+
+  // ── Missing-path session management ──────────────────────────────────────
+
+  /**
+   * All sessions whose project directories were not found during restore.
+   * Returned as {@link MissingPathInfo} so callers need only what the UI uses.
+   */
+  listMissingPaths(): MissingPathInfo[] {
+    return [...this._missingPaths.values()].map((r) => ({
+      sessionId: r.id,
+      cwd: r.cwd,
+      displayName: r.displayName,
+    }))
+  }
+
+  /**
+   * Remove a missing-path session from the in-memory tracker.
+   *
+   * Called by the IPC layer just before opening the session at a new cwd
+   * (reassign flow).  Also called by close() if the id is a missing-path.
+   *
+   * @returns The original {@link MissingPathInfo} if found, `undefined` otherwise.
+   */
+  removeMissingPath(id: SessionId): MissingPathInfo | undefined {
+    const record = this._missingPaths.get(id)
+    if (!record) return undefined
+    this._missingPaths.delete(id)
+    this._scheduleRegistrySave()
+    return { sessionId: record.id, cwd: record.cwd, displayName: record.displayName }
   }
 
   /**
@@ -376,6 +437,13 @@ export class SessionManager {
    * Idempotent for unknown IDs — resolves immediately if `id` is not found.
    */
   async close(id: SessionId): Promise<void> {
+    // Short-circuit for missing-path sessions — no live pi process to shut down.
+    if (this._missingPaths.has(id)) {
+      this._missingPaths.delete(id)
+      this._scheduleRegistrySave()
+      return
+    }
+
     const entry = this._sessions.get(id)
     if (!entry) return
 

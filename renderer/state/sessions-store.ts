@@ -32,6 +32,7 @@ import type {
   Unsubscribe,
   RestoreResult,
   GsdApi,
+  MissingPathInfo,
 } from '@shared/types'
 
 // ── GSD API accessor ───────────────────────────────────────────────────────────
@@ -67,6 +68,12 @@ export interface TabEntry {
   uiRequests: UiRequestState
   /** True when the session was in auto-mode at last checkpoint. */
   wasAutoRunning: boolean
+  /**
+   * True when this tab is a phantom entry for a session whose project directory
+   * was not found at restore time.  No live pi process exists for this id.
+   * `SessionView` renders `MissingSessionBanner` instead of the normal UI.
+   */
+  isMissingPath?: boolean
 }
 
 // ── Store interface ────────────────────────────────────────────────────────────
@@ -95,6 +102,19 @@ export interface SessionsStore {
   send(id: SessionId, text: string): Promise<void>
   /** Abort the currently running turn. Thin wrapper over gsd().abort(). */
   abort(id: SessionId): Promise<void>
+
+  /**
+   * Replace a phantom missing-path tab with a real live session.
+   *
+   * Called by `MissingSessionBanner` after a successful `reassignSessionCwd`
+   * call.  Removes the old phantom entry, inserts the new live entry at the
+   * same tab position, and wires IPC subscriptions for the new session id.
+   *
+   * @param oldId   The phantom session id (from the registry).
+   * @param newId   The new live session id returned by `reassignSessionCwd`.
+   * @param newCwd  The new project directory path.
+   */
+  replaceMissingTab(oldId: SessionId, newId: SessionId, newCwd: string): void
 
   // ── Initialisation ───────────────────────────────────────────────────────────
 
@@ -136,6 +156,7 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
    */
   const _subs = new Map<SessionId, () => void>()
   let _restoreSub: (() => void) | null = null
+  let _missingPathSub: (() => void) | null = null
 
   // ── Subscription helpers ───────────────────────────────────────────────────
 
@@ -192,6 +213,8 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
     _subs.clear()
     _restoreSub?.()
     _restoreSub = null
+    _missingPathSub?.()
+    _missingPathSub = null
   }
 
   // ── Store implementation ───────────────────────────────────────────────────
@@ -267,21 +290,73 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
       await gsd().abort(id)
     },
 
+    replaceMissingTab: (oldId: SessionId, newId: SessionId, newCwd: string): void => {
+      // Wire IPC subscriptions for the new live session before updating state.
+      subscribeToSession(newId)
+      // Clean up phantom subscription entry (idempotent — never subscribed).
+      unsubscribeSession(oldId)
+      set((s) => {
+        const sessions = { ...s.sessions }
+        delete sessions[oldId]
+        const displayName = newCwd.split(/[\/]/).filter(Boolean).pop() ?? newCwd
+        sessions[newId] = {
+          id: newId,
+          cwd: newCwd,
+          displayName,
+          state: 'Idle',
+          uiRequests: {},
+          wasAutoRunning: false,
+          isMissingPath: false,
+        }
+        const oldIdx = s.tabOrder.indexOf(oldId)
+        const tabOrder = [...s.tabOrder]
+        if (oldIdx >= 0) {
+          tabOrder.splice(oldIdx, 1, newId)
+        } else {
+          tabOrder.push(newId)
+        }
+        const activeTabId = s.activeTabId === oldId ? newId : s.activeTabId
+        return { sessions, tabOrder, activeTabId }
+      })
+    },
+
     init: async (): Promise<Unsubscribe> => {
       // Clear any pre-existing subscriptions (makes init() safe to call multiple times).
       clearAllSubs()
 
-      // 1. Fetch all sessions the main process currently has open.
+      // 1. Fetch all live sessions the main process currently has open.
       const records = await gsd().listSessions()
 
-      // 2. Build a fresh sessions snapshot and wire per-session subscriptions.
+      // 2. Fetch missing-path sessions (race-safe: called before subscribing
+      //    to onSessionMissingPath so any push events that fired before the
+      //    subscription is set up are caught here instead).
+      const missingPaths = await gsd().listMissingPaths()
+
+      // 3. Build a fresh sessions snapshot.
       const sessions: Record<SessionId, TabEntry> = {}
       const tabOrder: SessionId[] = []
 
+      // Live sessions first.
       for (const rec of records) {
         sessions[rec.id] = tabFromRecord(rec)
         tabOrder.push(rec.id)
         subscribeToSession(rec.id)
+      }
+
+      // Phantom tabs for missing-path sessions — no IPC subscription needed.
+      for (const info of missingPaths) {
+        if (!sessions[info.sessionId]) {
+          sessions[info.sessionId] = {
+            id: info.sessionId,
+            cwd: info.cwd,
+            displayName: info.displayName,
+            state: 'Stopped',
+            uiRequests: {},
+            wasAutoRunning: false,
+            isMissingPath: true,
+          }
+          tabOrder.push(info.sessionId)
+        }
       }
 
       // Preserve an existing activeTabId if it is still present in the new snapshot;
@@ -294,16 +369,44 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
 
       set({ sessions, tabOrder, activeTabId })
 
-      // 3. Subscribe to restore-complete so any sessions that finish restoring
-      //    after our initial snapshot are added automatically.
-      _restoreSub = gsd().onRestoreComplete(async (_result: RestoreResult) => {
+      // 4. Subscribe to missing-path pushes for sessions that become known
+      //    after our initial snapshot (e.g. late restore events).
+      _missingPathSub = gsd().onSessionMissingPath((info: MissingPathInfo) => {
+        const currentIds = new Set(Object.keys(get().sessions))
+        if (currentIds.has(info.sessionId)) return // already tracked
+        const phantom: TabEntry = {
+          id: info.sessionId,
+          cwd: info.cwd,
+          displayName: info.displayName,
+          state: 'Stopped',
+          uiRequests: {},
+          wasAutoRunning: false,
+          isMissingPath: true,
+        }
+        set((s) => ({
+          sessions: { ...s.sessions, [info.sessionId]: phantom },
+          tabOrder: [...s.tabOrder, info.sessionId],
+          activeTabId: s.activeTabId ?? info.sessionId,
+        }))
+        // No subscribeToSession() — missing-path sessions have no live pi process.
+      })
+
+      // 5. Subscribe to restore-complete so live sessions that finish restoring
+      //    after our initial snapshot are added automatically.  Also process any
+      //    missing-path entries in the payload as a race-safe fallback.
+      _restoreSub = gsd().onRestoreComplete(async (result: RestoreResult) => {
         const fresh = await gsd().listSessions()
 
-        // Only add sessions not already tracked — avoids overwriting live state.
+        // Only add live sessions not already tracked — avoids overwriting live state.
         const currentIds = new Set(Object.keys(get().sessions))
         const newRecords = fresh.filter((r) => !currentIds.has(r.id))
 
-        if (newRecords.length === 0) return
+        // Also handle any missing-path entries embedded in the restore payload
+        // in case the individual onSessionMissingPath push was missed.
+        const newMissing =
+          result.missingPath?.filter((info) => !currentIds.has(info.sessionId)) ?? []
+
+        if (newRecords.length === 0 && newMissing.length === 0) return
 
         set((s) => {
           const sessions = { ...s.sessions }
@@ -312,6 +415,18 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
             sessions[rec.id] = tabFromRecord(rec)
             tabOrder.push(rec.id)
           }
+          for (const info of newMissing) {
+            sessions[info.sessionId] = {
+              id: info.sessionId,
+              cwd: info.cwd,
+              displayName: info.displayName,
+              state: 'Stopped',
+              uiRequests: {},
+              wasAutoRunning: false,
+              isMissingPath: true,
+            }
+            tabOrder.push(info.sessionId)
+          }
           const activeTabId = s.activeTabId ?? tabOrder[0] ?? null
           return { sessions, tabOrder, activeTabId }
         })
@@ -319,9 +434,10 @@ export const useSessionsStore = create<SessionsStore>()((set, get) => {
         for (const rec of newRecords) {
           subscribeToSession(rec.id)
         }
+        // No subscribeToSession() for newMissing — no live pi process.
       })
 
-      // 4. Return cleanup that tears down all subscriptions.
+      // 6. Return cleanup that tears down all subscriptions.
       return (): void => {
         clearAllSubs()
       }

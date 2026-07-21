@@ -294,20 +294,29 @@ if (!gotSingleInstanceLock) {
     createMainWindow()
 
     // Restore sessions from the registry in parallel.  All opens are attempted
-    // regardless of individual failures.  The restore-complete push event is
-    // emitted to all webContents once every attempt has settled so the renderer
-    // can hydrate its session list.
+    // regardless of individual failures.  Missing-path sessions (cwd gone)
+    // receive a dedicated push before restore-complete so the renderer can show
+    // a MissingSessionBanner without waiting for the full restore to finish.
     try {
       const restoreResult = await sessionManager.restore(registry.sessions)
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+          // Fan out one MISSING_PATH push per missing session before the
+          // aggregate RESTORE_COMPLETE arrives.  The renderer's init() also
+          // calls listMissingPaths() at startup so events that race with the
+          // window load are still caught.
+          for (const info of restoreResult.missingPath) {
+            win.webContents.send(PUSH.MISSING_PATH, info)
+          }
           win.webContents.send(PUSH.RESTORE_COMPLETE, restoreResult)
         }
       }
       console.log(
         `[startup] restore-complete fanned out: ${
           restoreResult.restored.length
-        } restored, ${restoreResult.failed.length} failed`,
+        } restored, ${restoreResult.failed.length} failed, ${
+          restoreResult.missingPath.length
+        } missing-path`,
       )
     } catch (err) {
       // restore() itself never throws (failures go to failed[]), but guard anyway.

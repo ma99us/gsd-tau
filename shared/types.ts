@@ -14,6 +14,20 @@ export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, Mo
 export type SessionId = string
 
 /**
+ * Identifies a session whose project directory was not found on disk at restore time.
+ * Sent as the payload for each `session:missing-path` push event and included in
+ * `RestoreResult.missingPath` for race-safe initialisation.
+ */
+export interface MissingPathInfo {
+  /** The session id from the registry (no live pi process exists for this id). */
+  sessionId: SessionId
+  /** The project directory path that no longer exists. */
+  cwd: string
+  /** Human-readable display name (registry basename). */
+  displayName: string
+}
+
+/**
  * Session state returned by getState() and pushed via the
  * session:state-change push channel.  Matches the 4-state machine
  * in main/session/state-machine.ts — kept here so the renderer never
@@ -75,6 +89,24 @@ export interface GsdApi {
   ): Unsubscribe
   /** Subscribe to the one-time `session:restore-complete` push fired after relaunch restore. */
   onRestoreComplete(cb: (result: RestoreResult) => void): Unsubscribe
+  /**
+   * Subscribe to `session:missing-path` pushes.
+   * One push per missing-path session fires shortly before `restore-complete`.
+   * Also call `listMissingPaths()` in `init()` to handle any race with window load.
+   */
+  onSessionMissingPath(cb: (info: MissingPathInfo) => void): Unsubscribe
+  /**
+   * Fetch all sessions whose project directories were not found at restore time.
+   * Called during store initialisation to catch missing-path sessions that fired
+   * before the renderer's push subscription was set up.
+   */
+  listMissingPaths(): Promise<MissingPathInfo[]>
+  /**
+   * Reassign a missing-path session to a new directory and re-open it.
+   * Cleans up the old missing-path entry and opens a fresh pi session at `newCwd`.
+   * @returns The stable id of the newly opened session.
+   */
+  reassignSessionCwd(sessionId: SessionId, newCwd: string): Promise<{ newSessionId: SessionId }>
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */
@@ -188,6 +220,12 @@ export interface RestoreResult {
   succeeded: SessionId[]
   /** Session ids that failed to restore. */
   failed: SessionId[]
+  /**
+   * Sessions whose project directories were not found on disk.
+   * These sessions have NO live pi process — they are tracked as phantom tabs
+   * in the renderer until the user reassigns or removes them.
+   */
+  missingPath?: MissingPathInfo[]
 }
 
 /**

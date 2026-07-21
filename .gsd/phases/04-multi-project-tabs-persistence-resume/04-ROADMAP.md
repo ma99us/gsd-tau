@@ -21,7 +21,7 @@
 - [x] **S03: Single-instance Lock, IPC Upgrade, Zustand Store** `risk:low` `depends:[S02]`
   > After this: Second app instance with --open-project opens a new tab in the first and exits.
 
-- [ ] **S04: Tab Bar and Open Project Flyout** `risk:low` `depends:[S03]`
+- [x] **S04: Tab Bar and Open Project Flyout** `risk:low` `depends:[S03]`
   > After this: Tab bar with three projects; reorder by drag; right-click menu works; Open Project flyout shows recents.
 
 - [ ] **S05: Restore Flow, Missing-file Banner, Window Bounds, Tests** `risk:medium` `depends:[S04]`
