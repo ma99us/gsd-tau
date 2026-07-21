@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T02",
+  "unitId": "M005/S05/T02",
+  "timestamp": 1784664686742,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm tsc --noEmit",
+      "exitCode": 2,
+      "durationMs": 3550,
+      "verdict": "fail"
+    }
+  ]
+}
