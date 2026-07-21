@@ -73,6 +73,8 @@ describe('registerHandlers', () => {
     getSessionStats: ReturnType<typeof vi.fn>
     listMissingPaths: ReturnType<typeof vi.fn>
     removeMissingPath: ReturnType<typeof vi.fn>
+    getAvailableModels: ReturnType<typeof vi.fn>
+    setModel: ReturnType<typeof vi.fn>
   }
   let cleanup: () => void
 
@@ -113,6 +115,8 @@ describe('registerHandlers', () => {
       getSessionStats: vi.fn().mockResolvedValue(null),
       listMissingPaths: vi.fn().mockReturnValue([]),
       removeMissingPath: vi.fn(),
+      getAvailableModels: vi.fn().mockResolvedValue([]),
+      setModel: vi.fn().mockResolvedValue(undefined),
     }
 
     ;({ cleanup } = registerHandlers(manager as never))

@@ -44,6 +44,8 @@ function makeMockClient(opts?: { shutdownDelay?: number }): RpcClient {
     events,
     shutdown: shutdownFn,
     switchSession: vi.fn().mockResolvedValue(undefined),
+    getAvailableModels: vi.fn().mockResolvedValue([]),
+    setModel: vi.fn().mockResolvedValue(undefined),
   } as unknown as RpcClient
 }
 
