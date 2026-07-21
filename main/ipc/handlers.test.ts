@@ -109,9 +109,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 6 IPC channels', () => {
+    it('registers handlers for all 9 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(6)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(9)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)

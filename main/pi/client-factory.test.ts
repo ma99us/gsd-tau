@@ -7,9 +7,10 @@ import { createClient, ClientInitError } from './client-factory'
 // the vi.mock() factory closures execute below. This is the safe pattern for
 // mocking constructors and ES-module dependencies in Vitest.
 
-const { mockResolvePiBinary, mockStart, mockStop, mockInit, MockRpcClient } =
+const { mockResolvePiBinary, mockResolveSystemNode, mockStart, mockStop, mockInit, MockRpcClient } =
   vi.hoisted(() => {
     const mockResolvePiBinary = vi.fn<() => string>()
+    const mockResolveSystemNode = vi.fn<() => string | null>().mockReturnValue(null)
     const mockStart = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     const mockStop = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
     const mockInit = vi.fn<(opts?: { clientId?: string }) => Promise<unknown>>()
@@ -18,14 +19,14 @@ const { mockResolvePiBinary, mockStart, mockStop, mockInit, MockRpcClient } =
       stop: mockStop,
       init: mockInit,
     }))
-    return { mockResolvePiBinary, mockStart, mockStop, mockInit, MockRpcClient }
+    return { mockResolvePiBinary, mockResolveSystemNode, mockStart, mockStop, mockInit, MockRpcClient }
   })
 
 // Mock the SDK module — RpcClient constructor is replaced by MockRpcClient.
 vi.mock('@opengsd/rpc-client', () => ({ RpcClient: MockRpcClient }))
 
 // Mock the resolver — isolates factory from filesystem + OS.
-vi.mock('./resolve-pi', () => ({ resolvePiBinary: mockResolvePiBinary }))
+vi.mock('./resolve-pi', () => ({ resolvePiBinary: mockResolvePiBinary, resolveSystemNode: mockResolveSystemNode }))
 
 // ── Test fixtures ──────────────────────────────────────────────────────────────
 
