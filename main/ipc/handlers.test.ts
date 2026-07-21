@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'node:events'
 import type { SessionId } from '../../shared/types'
-import { IPC, PUSH, registerHandlers, validateUiResponse } from './handlers'
+import { IPC, PUSH, registerHandlers, validateUiResponse, parseOpenProjectArg } from './handlers'
 
 // ── Mock electron ──────────────────────────────────────────────────────────────
 // vi.mock is hoisted to before all imports by Vitest's transform; the factory
@@ -64,6 +64,8 @@ describe('registerHandlers', () => {
     get: ReturnType<typeof vi.fn>
     close: ReturnType<typeof vi.fn>
     registerPreShutdownHook: ReturnType<typeof vi.fn>
+    list: ReturnType<typeof vi.fn>
+    rename: ReturnType<typeof vi.fn>
   }
   let cleanup: () => void
 
@@ -95,9 +97,11 @@ describe('registerHandlers', () => {
       get: vi.fn(),
       close: vi.fn().mockResolvedValue(undefined),
       registerPreShutdownHook: vi.fn(),
+      list: vi.fn().mockReturnValue([]),
+      rename: vi.fn(),
     }
 
-    cleanup = registerHandlers(manager as never)
+    ;({ cleanup } = registerHandlers(manager as never))
   })
 
   afterEach(() => {
@@ -109,15 +113,21 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 9 IPC channels', () => {
+    it('registers handlers for all 12 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(9)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(12)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
       expect(capturedHandlers.has(IPC.ABORT)).toBe(true)
       expect(capturedHandlers.has(IPC.GET_STATE)).toBe(true)
       expect(capturedHandlers.has(IPC.RESPOND_UI)).toBe(true)
+      expect(capturedHandlers.has(IPC.GET_COMMANDS)).toBe(true)
+      expect(capturedHandlers.has(IPC.GET_AVAILABLE_MODELS)).toBe(true)
+      expect(capturedHandlers.has(IPC.SET_MODEL)).toBe(true)
+      expect(capturedHandlers.has(IPC.LIST_SESSIONS)).toBe(true)
+      expect(capturedHandlers.has(IPC.CLOSE_SESSION)).toBe(true)
+      expect(capturedHandlers.has(IPC.RENAME_SESSION)).toBe(true)
     })
   })
 
@@ -349,7 +359,7 @@ describe('registerHandlers', () => {
   // ── cleanup ──────────────────────────────────────────────────────────────────
 
   describe('cleanup', () => {
-    it('removes all 6 ipcMain handlers', () => {
+    it('removes all 12 ipcMain handlers', () => {
       const ipcMock = ipcMain as unknown as IpcMock
       cleanup()
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SHOW_FOLDER_PICKER)
@@ -358,6 +368,12 @@ describe('registerHandlers', () => {
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.ABORT)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_STATE)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.RESPOND_UI)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_COMMANDS)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_AVAILABLE_MODELS)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SET_MODEL)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.LIST_SESSIONS)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.CLOSE_SESSION)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.RENAME_SESSION)
     })
 
     it('stops event fan-out after cleanup', async () => {
@@ -832,5 +848,161 @@ describe('registerHandlers', () => {
       expect(result).toMatchObject({ ok: false, error: expect.stringContaining('null') })
       expect(mockHandle.sendUIResponse).not.toHaveBeenCalled()
     })
+  })
+
+  // ── listSessions ─────────────────────────────────────────────────────────────
+
+  describe('listSessions', () => {
+    it('returns the result of manager.list()', () => {
+      const records = [
+        {
+          id: 's_abc',
+          cwd: '/project-a',
+          displayName: 'project-a',
+          lastOpenedAt: '2024-01-01T00:00:00.000Z',
+          wasAutoRunning: false,
+        },
+      ]
+      manager.list.mockReturnValue(records)
+      expect(capturedHandlers.get(IPC.LIST_SESSIONS)!(null)).toEqual(records)
+      expect(manager.list).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns an empty array when no sessions are open', () => {
+      manager.list.mockReturnValue([])
+      expect(capturedHandlers.get(IPC.LIST_SESSIONS)!(null)).toEqual([])
+    })
+
+    it('does not require a sessionId argument', () => {
+      // listSessions takes no arguments — calling with none should not throw.
+      manager.list.mockReturnValue([])
+      expect(() => capturedHandlers.get(IPC.LIST_SESSIONS)!(null)).not.toThrow()
+    })
+  })
+
+  // ── closeSession ─────────────────────────────────────────────────────────────
+
+  describe('closeSession', () => {
+    it('calls manager.close() with the sessionId', async () => {
+      await capturedHandlers.get(IPC.CLOSE_SESSION)!(null, 's_xyz')
+      expect(manager.close).toHaveBeenCalledWith('s_xyz')
+    })
+
+    it('tears down the session entry so getState throws afterward', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+      const sessionId = mockHandle.sessionId
+      // Session is open — getState should work.
+      expect(capturedHandlers.get(IPC.GET_STATE)!(null, sessionId)).toBe('Idle')
+
+      // Close it.
+      await capturedHandlers.get(IPC.CLOSE_SESSION)!(null, sessionId)
+
+      // After close the entry is gone — getState must throw.
+      expect(() => capturedHandlers.get(IPC.GET_STATE)!(null, sessionId)).toThrow(
+        `getState: unknown session '${sessionId}'`,
+      )
+    })
+
+    it('stops event fan-out after the session is closed', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+      const sessionId = mockHandle.sessionId
+      await capturedHandlers.get(IPC.CLOSE_SESSION)!(null, sessionId)
+      mockWcList[0].send.mockClear()
+
+      // Events emitted on the handle after close should NOT reach the renderer.
+      mockHandle.emit('event', { type: 'message' })
+      expect(mockWcList[0].send).not.toHaveBeenCalled()
+    })
+
+    it('is safe to close an unknown sessionId (idempotent)', async () => {
+      await expect(
+        capturedHandlers.get(IPC.CLOSE_SESSION)!(null, 's_does_not_exist'),
+      ).resolves.toBeUndefined()
+      expect(manager.close).toHaveBeenCalledWith('s_does_not_exist')
+    })
+  })
+
+  // ── renameSession ─────────────────────────────────────────────────────────────
+
+  describe('renameSession', () => {
+    it('delegates to manager.rename() with sessionId and name', () => {
+      capturedHandlers.get(IPC.RENAME_SESSION)!(null, 's_abc', 'My Project')
+      expect(manager.rename).toHaveBeenCalledWith('s_abc', 'My Project')
+    })
+
+    it('delegates an empty name (the manager decides what to do)', () => {
+      capturedHandlers.get(IPC.RENAME_SESSION)!(null, 's_abc', '')
+      expect(manager.rename).toHaveBeenCalledWith('s_abc', '')
+    })
+
+    it('is safe to rename an unknown sessionId (manager.rename is a no-op)', () => {
+      expect(() =>
+        capturedHandlers.get(IPC.RENAME_SESSION)!(null, 's_no_such_session', 'Name'),
+      ).not.toThrow()
+      expect(manager.rename).toHaveBeenCalledWith('s_no_such_session', 'Name')
+    })
+  })
+})
+
+// ── parseOpenProjectArg ───────────────────────────────────────────────────────
+//
+// Tests the exported pure function directly — no Electron setup needed.
+
+describe('parseOpenProjectArg', () => {
+  it('returns null for an empty argv array', () => {
+    expect(parseOpenProjectArg([])).toBeNull()
+  })
+
+  it('returns null when the flag is absent', () => {
+    expect(parseOpenProjectArg(['node', 'app.js', '--other-flag'])).toBeNull()
+  })
+
+  it('returns null when the flag is the last element (no value follows)', () => {
+    expect(parseOpenProjectArg(['--open-project'])).toBeNull()
+  })
+
+  it('returns null when the value is another flag', () => {
+    expect(
+      parseOpenProjectArg(['--open-project', '--another-flag', '/project']),
+    ).toBeNull()
+  })
+
+  it('returns null when the value is an empty string', () => {
+    expect(parseOpenProjectArg(['--open-project', ''])).toBeNull()
+  })
+
+  it('returns the path when the flag has a valid posix value', () => {
+    expect(
+      parseOpenProjectArg(['node', 'app.js', '--open-project', '/my/project']),
+    ).toBe('/my/project')
+  })
+
+  it('returns the path when the flag has a Windows-style value', () => {
+    expect(
+      parseOpenProjectArg(['--open-project', 'D:\\Projects\\my-app']),
+    ).toBe('D:\\Projects\\my-app')
+  })
+
+  it('handles normal process.argv layout (exe + script at indices 0 and 1)', () => {
+    expect(
+      parseOpenProjectArg([
+        'C:\\node.exe',
+        'C:\\app.js',
+        '--open-project',
+        'D:\\work\\my-project',
+      ]),
+    ).toBe('D:\\work\\my-project')
+  })
+
+  it('returns the first match when the flag appears more than once', () => {
+    expect(
+      parseOpenProjectArg(['--open-project', '/a', '--open-project', '/b']),
+    ).toBe('/a')
+  })
+
+  it('handles extra argv flags before the open-project flag', () => {
+    expect(
+      parseOpenProjectArg(['--some-flag', 'value', '--open-project', '/proj']),
+    ).toBe('/proj')
   })
 })

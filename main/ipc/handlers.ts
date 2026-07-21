@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } fr
 import type { WebContents } from 'electron'
 import { basename } from 'node:path'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId, RpcExtensionUIRequest, UiResponseInput } from '../../shared/types'
+import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput } from '../../shared/types'
 import { BlockerTracker } from '../session/blocker-tracker'
 import { SessionStateMachine } from '../session/state-machine'
 import type {
@@ -25,6 +25,9 @@ export const IPC = {
   GET_COMMANDS: 'getCommands',
   GET_AVAILABLE_MODELS: 'getAvailableModels',
   SET_MODEL: 'setModel',
+  LIST_SESSIONS: 'listSessions',
+  CLOSE_SESSION: 'closeSession',
+  RENAME_SESSION: 'renameSession',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -167,6 +170,26 @@ export function validateUiResponse(
   }
 }
 
+// ── parseOpenProjectArg ──────────────────────────────────────────────────────────
+
+/**
+ * Extract the `--open-project <path>` value from a `process.argv`-style array.
+ *
+ * Returns the path string when the flag and a non-empty, non-flag value are
+ * both present; returns `null` otherwise.  Pure — no side effects.
+ *
+ * @param argv  Command-line argument array (may include the executable + script
+ *              paths at indices 0 and 1, as in `process.argv`).
+ */
+export function parseOpenProjectArg(argv: string[]): string | null {
+  const idx = argv.indexOf('--open-project')
+  if (idx === -1 || idx + 1 >= argv.length) return null
+  const value = argv[idx + 1]
+  // Treat empty strings and other flag-like values as absent.
+  if (!value || value.startsWith('-')) return null
+  return value
+}
+
 // ── registerHandlers ───────────────────────────────────────────────────────────
 
 /**
@@ -195,14 +218,16 @@ export function validateUiResponse(
  *                             Pass `undefined` to use the real Electron webContents.
  * @param showBlockerToastFn   Injected toast callback fired on blocker arrival.
  *                             Pass `undefined` to use a silent no-op.
- * @returns A cleanup function that removes all registered ipcMain handlers and
- *          tears down per-session state machines + listeners.
+ * @returns An object with `cleanup` (removes all handlers) and
+ *          `handleOpenProject` (shared with the second-instance handler so a
+ *          forwarded `--open-project` path can open a new tab in the first
+ *          instance without going through the IPC layer).
  */
 export function registerHandlers(
   manager: SessionManager,
   getAllWebContents?: GetAllWebContents,
   showBlockerToastFn: ShowBlockerToastFn = () => {},
-): () => void {
+): { cleanup: () => void; handleOpenProject: (cwd: string) => Promise<SessionId> } {
   const getWc: GetAllWebContents =
     getAllWebContents ?? (() => electronWebContents.getAllWebContents())
   const sessions = new Map<SessionId, SessionEntry>()
@@ -221,10 +246,10 @@ export function registerHandlers(
     },
   )
 
-  // ── openProject ──────────────────────────────────────────────────────────────
-  ipcMain.handle(
-    IPC.OPEN_PROJECT,
-    async (_event, cwd: string): Promise<SessionId> => {
+  // ── doOpenProject ─────────────────────────────────────────────────────────────
+  // Extracted from the openProject IPC handler so the second-instance handler
+  // can call it directly (in-process) without going through Electron IPC.
+  async function doOpenProject(cwd: string): Promise<SessionId> {
       const handle = await manager.open(cwd)
       const id = handle.sessionId
 
@@ -365,7 +390,12 @@ export function registerHandlers(
       })
 
       return id
-    },
+  }
+
+  // ── openProject ──────────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.OPEN_PROJECT,
+    (_event, cwd: string): Promise<SessionId> => doOpenProject(cwd),
   )
 
   // ── prompt ──────────────────────────────────────────────────────────────────
@@ -462,8 +492,40 @@ export function registerHandlers(
     },
   )
 
+  // ── listSessions ─────────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.LIST_SESSIONS,
+    (_event): SessionRecord[] => manager.list(),
+  )
+
+  // ── closeSession ─────────────────────────────────────────────────────────────
+  //
+  // Tears down the handler-level state machine + listeners FIRST so no more
+  // fan-out events reach the renderer after the tab is closed, then delegates
+  // the actual pi process shutdown to SessionManager.
+  ipcMain.handle(
+    IPC.CLOSE_SESSION,
+    async (_event, sessionId: SessionId): Promise<void> => {
+      const entry = sessions.get(sessionId)
+      if (entry) {
+        entry.cleanup()
+        sessions.delete(sessionId)
+      }
+      // SessionManager.close() is idempotent for unknown ids.
+      await manager.close(sessionId)
+    },
+  )
+
+  // ── renameSession ─────────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.RENAME_SESSION,
+    (_event, sessionId: SessionId, name: string): void => {
+      manager.rename(sessionId, name)
+    },
+  )
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
-  return function cleanup(): void {
+  function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
     ipcMain.removeHandler(IPC.OPEN_PROJECT)
     ipcMain.removeHandler(IPC.PROMPT)
@@ -473,10 +535,15 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.GET_COMMANDS)
     ipcMain.removeHandler(IPC.GET_AVAILABLE_MODELS)
     ipcMain.removeHandler(IPC.SET_MODEL)
+    ipcMain.removeHandler(IPC.LIST_SESSIONS)
+    ipcMain.removeHandler(IPC.CLOSE_SESSION)
+    ipcMain.removeHandler(IPC.RENAME_SESSION)
 
     for (const [, entry] of sessions) {
       entry.cleanup()
     }
     sessions.clear()
   }
+
+  return { cleanup, handleOpenProject: doOpenProject }
 }

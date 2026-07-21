@@ -15,7 +15,7 @@
 - [x] **S01: Registry Store and Schema Types** `risk:medium` `depends:[]`
   > After this: Unit tests: write registry, kill process mid-write, relaunch reads .bak, no data loss.
 
-- [ ] **S02: Multi-session SessionManager and Registry Integration** `risk:high` `depends:[S01]`
+- [x] **S02: Multi-session SessionManager and Registry Integration** `risk:high` `depends:[S01]`
   > After this: Three sessions open simultaneously; registry reflects all three; registry survives app kill.
 
 - [ ] **S03: Single-instance Lock, IPC Upgrade, Zustand Store** `risk:low` `depends:[S02]`

@@ -60,6 +60,9 @@ export interface GsdApi {
     provider: string,
     modelId: string,
   ): Promise<{ provider: string; id: string }>
+  listSessions(): Promise<SessionRecord[]>
+  closeSession(sessionId: SessionId): Promise<void>
+  renameSession(sessionId: SessionId, name: string): Promise<void>
   onEvent(sessionId: SessionId, cb: (event: SessionEvent) => void): Unsubscribe
   onStateChange(sessionId: SessionId, cb: (state: SessionState) => void): Unsubscribe
   onUiRequestAdded(

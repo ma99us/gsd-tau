@@ -6,7 +6,7 @@ import { join, dirname } from 'path'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { SessionManager } from './session/session-manager'
 import { RegistryStore } from './persistence/registry-store'
-import { registerHandlers, PUSH } from './ipc/handlers'
+import { registerHandlers, PUSH, parseOpenProjectArg } from './ipc/handlers'
 import { showBlockerToast } from './os/notifications'
 import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
 
@@ -217,48 +217,110 @@ function logStartupDiagnostics(): void {
   console.log(`[startup] ──────────────────────────────────────────────────────`)
 }
 
-app.whenReady().then(async () => {
-  app.setAppUserModelId('io.opengsd.gsd-tau')
-  logStartupDiagnostics()
+// ── Single-instance lock ──────────────────────────────────────────────────────
+//
+// Electron's single-instance lock forwards second-instance argv to the first
+// instance via the 'second-instance' event.  The first instance then opens
+// the requested project and focuses its window; the second instance quits
+// immediately without ever showing a window.
+//
+// The lock MUST be acquired before app.whenReady() so the second instance
+// never creates windows or registers IPC handlers before exiting.
 
-  // Load the persisted registry synchronously before opening the main window.
-  // load() never throws — falls back to registry.json.bak then an empty default.
-  const registry = registryStore.load()
-  console.log(`[startup] registry loaded: ${registry.sessions.length} session(s)`)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
 
-  const cleanupHandlers = registerHandlers(sessionManager, undefined, showBlockerToast)
-  // Remove IPC handlers when the app fully quits so Electron does not warn
-  // about lingering handlers after the main process tears down.
-  app.once('will-quit', () => cleanupHandlers())
-  createMainWindow()
+if (!gotSingleInstanceLock) {
+  // Not the primary instance — forward via the OS lock, then exit.
+  console.log('[startup] another instance holds the lock — quitting this instance')
+  app.quit()
+} else {
+  // Primary instance.
 
-  // Restore sessions from the registry in parallel.  All opens are attempted
-  // regardless of individual failures.  The restore-complete push event is
-  // emitted to all webContents once every attempt has settled so the renderer
-  // can hydrate its session list.
-  try {
-    const restoreResult = await sessionManager.restore(registry.sessions)
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-        win.webContents.send(PUSH.RESTORE_COMPLETE, restoreResult)
+  /**
+   * Holds the `handleOpenProject` function exported by `registerHandlers`.
+   * Set once inside `app.whenReady()` and accessed from the `second-instance`
+   * handler, which may fire after the ready event.
+   */
+  let _handleOpenProject: ((cwd: string) => Promise<string>) | null = null
+
+  /**
+   * Forward a second-instance activation to the primary window.
+   * Electron fires this event in the FIRST instance when a SECOND instance
+   * starts with the same App User Model ID.
+   */
+  app.on('second-instance', (_event, argv) => {
+    console.log(`[second-instance] argv=${JSON.stringify(argv)}`)
+
+    // Open the forwarded project path if present.
+    const cwd = parseOpenProjectArg(argv)
+    if (cwd) {
+      console.log(`[second-instance] opening project: ${JSON.stringify(cwd)}`)
+      if (_handleOpenProject) {
+        _handleOpenProject(cwd).catch((err: unknown) => {
+          console.error('[second-instance] openProject failed:', err)
+        })
+      } else {
+        // Race: second-instance fired before whenReady finished (rare but possible).
+        console.warn('[second-instance] handleOpenProject not ready yet — ignoring request')
       }
     }
-    console.log(
-      `[startup] restore-complete fanned out: ${
-        restoreResult.restored.length
-      } restored, ${restoreResult.failed.length} failed`,
-    )
-  } catch (err) {
-    // restore() itself never throws (failures go to failed[]), but guard anyway.
-    console.error('[startup] unexpected error during session restore:', err)
-  }
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow()
+    // Bring the primary window to front.
+    const [win] = BrowserWindow.getAllWindows()
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
     }
   })
-})
+
+  app.whenReady().then(async () => {
+    app.setAppUserModelId('io.opengsd.gsd-tau')
+    logStartupDiagnostics()
+
+    // Load the persisted registry synchronously before opening the main window.
+    // load() never throws — falls back to registry.json.bak then an empty default.
+    const registry = registryStore.load()
+    console.log(`[startup] registry loaded: ${registry.sessions.length} session(s)`)
+
+    const { cleanup: cleanupHandlers, handleOpenProject } = registerHandlers(
+      sessionManager,
+      undefined,
+      showBlockerToast,
+    )
+    _handleOpenProject = handleOpenProject
+    // Remove IPC handlers when the app fully quits so Electron does not warn
+    // about lingering handlers after the main process tears down.
+    app.once('will-quit', () => cleanupHandlers())
+    createMainWindow()
+
+    // Restore sessions from the registry in parallel.  All opens are attempted
+    // regardless of individual failures.  The restore-complete push event is
+    // emitted to all webContents once every attempt has settled so the renderer
+    // can hydrate its session list.
+    try {
+      const restoreResult = await sessionManager.restore(registry.sessions)
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+          win.webContents.send(PUSH.RESTORE_COMPLETE, restoreResult)
+        }
+      }
+      console.log(
+        `[startup] restore-complete fanned out: ${
+          restoreResult.restored.length
+        } restored, ${restoreResult.failed.length} failed`,
+      )
+    } catch (err) {
+      // restore() itself never throws (failures go to failed[]), but guard anyway.
+      console.error('[startup] unexpected error during session restore:', err)
+    }
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow()
+      }
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   // gsd-tau is Windows-only; always quit when the last window closes.

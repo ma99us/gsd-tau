@@ -10,6 +10,7 @@ import type {
   UiResponseInput,
   RpcSlashCommand,
   ModelInfo,
+  SessionRecord,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -25,6 +26,9 @@ const IPC = {
   GET_COMMANDS: 'getCommands',
   GET_AVAILABLE_MODELS: 'getAvailableModels',
   SET_MODEL: 'setModel',
+  LIST_SESSIONS: 'listSessions',
+  CLOSE_SESSION: 'closeSession',
+  RENAME_SESSION: 'renameSession',
 } as const
 
 const PUSH = {
@@ -85,6 +89,15 @@ export function createGsdApi(): GsdApi {
       modelId: string,
     ): Promise<{ provider: string; id: string }> =>
       ipcRenderer.invoke(IPC.SET_MODEL, sessionId, provider, modelId),
+
+    listSessions: (): Promise<SessionRecord[]> =>
+      ipcRenderer.invoke(IPC.LIST_SESSIONS),
+
+    closeSession: (sessionId: SessionId): Promise<void> =>
+      ipcRenderer.invoke(IPC.CLOSE_SESSION, sessionId),
+
+    renameSession: (sessionId: SessionId, name: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.RENAME_SESSION, sessionId, name),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 
