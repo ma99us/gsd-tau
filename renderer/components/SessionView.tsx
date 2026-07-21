@@ -29,6 +29,7 @@ import {
   useCallback,
   useReducer,
 } from 'react'
+import { SessionHeaderBar } from './SessionHeaderBar'
 import { TurnList } from './TurnList'
 import { Composer } from './Composer'
 import {
@@ -383,6 +384,9 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath }: Session
           )}
         </div>
       </header>
+
+      {/* Model chip + cost display — live RPC state and cost_update events */}
+      <SessionHeaderBar sessionId={sessionId} />
 
       {/* Missing-path banner replaces the stopped banner when the project dir is gone */}
       {isMissingPath ? (

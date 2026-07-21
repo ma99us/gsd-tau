@@ -105,6 +105,10 @@ describe('registerHandlers', () => {
       resume: vi.fn().mockResolvedValue(undefined),
       getHistorySessionFile: vi.fn().mockReturnValue(undefined),
       updateSessionFile: vi.fn(),
+      getRpcState: vi.fn().mockResolvedValue(null),
+      getSessionStats: vi.fn().mockResolvedValue(null),
+      listMissingPaths: vi.fn().mockReturnValue([]),
+      removeMissingPath: vi.fn(),
     }
 
     ;({ cleanup } = registerHandlers(manager as never))
@@ -119,9 +123,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 12 IPC channels', () => {
+    it('registers handlers for all 17 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(12)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(17)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
@@ -134,6 +138,12 @@ describe('registerHandlers', () => {
       expect(capturedHandlers.has(IPC.LIST_SESSIONS)).toBe(true)
       expect(capturedHandlers.has(IPC.CLOSE_SESSION)).toBe(true)
       expect(capturedHandlers.has(IPC.RENAME_SESSION)).toBe(true)
+      // Channels added after initial 12:
+      expect(capturedHandlers.has(IPC.LIST_MISSING_PATHS)).toBe(true)
+      expect(capturedHandlers.has(IPC.REASSIGN_SESSION_CWD)).toBe(true)
+      expect(capturedHandlers.has(IPC.SAVE_WINDOW_ACTIVE_TAB)).toBe(true)
+      expect(capturedHandlers.has(IPC.GET_RPC_STATE)).toBe(true)
+      expect(capturedHandlers.has(IPC.GET_SESSION_STATS)).toBe(true)
     })
   })
 
@@ -365,7 +375,7 @@ describe('registerHandlers', () => {
   // ── cleanup ──────────────────────────────────────────────────────────────────
 
   describe('cleanup', () => {
-    it('removes all 12 ipcMain handlers', () => {
+    it('removes all 17 ipcMain handlers', () => {
       const ipcMock = ipcMain as unknown as IpcMock
       cleanup()
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SHOW_FOLDER_PICKER)
@@ -380,6 +390,12 @@ describe('registerHandlers', () => {
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.LIST_SESSIONS)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.CLOSE_SESSION)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.RENAME_SESSION)
+      // Channels added after initial 12:
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.LIST_MISSING_PATHS)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.REASSIGN_SESSION_CWD)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SAVE_WINDOW_ACTIVE_TAB)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_RPC_STATE)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_SESSION_STATS)
     })
 
     it('stops event fan-out after cleanup', async () => {

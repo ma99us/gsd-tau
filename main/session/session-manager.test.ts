@@ -612,6 +612,13 @@ describe('SessionManager', () => {
   // ── restore() ──────────────────────────────────────────────────────────────
 
   describe('restore()', () => {
+    /**
+     * A directory guaranteed to exist on this machine (the project working dir).
+     * Used in place of hard-coded posix paths like /proj/alpha so existsSync
+     * passes on Windows without mocking the filesystem.
+     */
+    const existingCwd = process.cwd()
+
     /** Build a minimal SessionRecord fixture. */
     function makeRecord(overrides?: Partial<SessionRecord>): SessionRecord {
       return {
@@ -631,11 +638,11 @@ describe('SessionManager', () => {
     })
 
     it('restored session appears in list()', async () => {
-      const result = await mgr.restore([makeRecord({ cwd: '/proj/alpha' })])
+      const result = await mgr.restore([makeRecord({ cwd: existingCwd })])
       expect(result.restored).toHaveLength(1)
       expect(result.failed).toHaveLength(0)
       expect(mgr.list()).toHaveLength(1)
-      expect(mgr.list()[0]!.cwd).toBe('/proj/alpha')
+      expect(mgr.list()[0]!.cwd).toBe(existingCwd)
 
       await mgr.close(result.restored[0]!)
     })
@@ -645,8 +652,8 @@ describe('SessionManager', () => {
       const mgr2 = new SessionManager({ createClient: multiFactory })
 
       const result = await mgr2.restore([
-        makeRecord({ cwd: '/proj/a' }),
-        makeRecord({ cwd: '/proj/b' }),
+        makeRecord({ cwd: existingCwd }),
+        makeRecord({ cwd: existingCwd }),
       ])
 
       expect(result.restored).toHaveLength(2)
@@ -662,7 +669,7 @@ describe('SessionManager', () => {
       const mgr2 = new SessionManager({ createClient: switchFactory })
 
       const result = await mgr2.restore([
-        makeRecord({ cwd: '/proj/b', sessionFile: '/path/to/session.jsonl' }),
+        makeRecord({ cwd: existingCwd, sessionFile: '/path/to/session.jsonl' }),
       ])
 
       expect(
@@ -676,7 +683,7 @@ describe('SessionManager', () => {
       const noSwitchClient = makeMockClient()
       const mgr2 = new SessionManager({ createClient: makeFactory(noSwitchClient) })
 
-      const result = await mgr2.restore([makeRecord({ cwd: '/proj/c' })])
+      const result = await mgr2.restore([makeRecord({ cwd: existingCwd })])
 
       expect(
         (noSwitchClient as unknown as { switchSession: ReturnType<typeof vi.fn> }).switchSession,
@@ -687,7 +694,8 @@ describe('SessionManager', () => {
 
     it('factory failure is captured in failed[] without blocking other records', async () => {
       const goodClient = makeMockClient()
-      // First call fails; second succeeds
+      // First call fails; second succeeds.
+      // Both use existingCwd so existsSync passes and the factory is reached.
       const failOnFirst = vi
         .fn()
         .mockRejectedValueOnce(new Error('spawn fail'))
@@ -695,12 +703,12 @@ describe('SessionManager', () => {
       const mgr2 = new SessionManager({ createClient: failOnFirst })
 
       const result = await mgr2.restore([
-        makeRecord({ cwd: '/proj/fail' }),
-        makeRecord({ cwd: '/proj/ok' }),
+        makeRecord({ cwd: existingCwd }),
+        makeRecord({ cwd: existingCwd }),
       ])
 
       expect(result.failed).toHaveLength(1)
-      expect(result.failed[0]!.record.cwd).toBe('/proj/fail')
+      expect(result.failed[0]!.record.cwd).toBe(existingCwd)
       expect(result.restored).toHaveLength(1)
       expect(mgr2.list()).toHaveLength(1)
 
