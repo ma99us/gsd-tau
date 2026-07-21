@@ -21,7 +21,7 @@
 vi.mock('./ModelPickerDropdown', () => ({ ModelPickerDropdown: () => null }))
 vi.mock('./ThinkingLevelChip', () => ({ ThinkingLevelChip: () => null }))
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { RPC_THINKING_LEVELS } from '../../shared/types'
 import type { ThinkingLevel } from '../../shared/types'
 import { formatCost } from './SessionHeaderBar'
