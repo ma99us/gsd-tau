@@ -495,6 +495,26 @@ export class SessionManager {
   }
 
   /**
+   * Fetch the RPC session state (model info, thinking level, streaming status, …).
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async getRpcState(id: SessionId): Promise<import('@opengsd/contracts').RpcSessionState> {
+    const entry = this._sessions.get(id)
+    if (!entry) throw new Error(`SessionManager.getRpcState(): unknown session '${id}'`)
+    return entry.client.getState()
+  }
+
+  /**
+   * Fetch cumulative session statistics (cost, token counts, message counts).
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async getSessionStats(id: SessionId): Promise<import('@opengsd/contracts').SessionStats> {
+    const entry = this._sessions.get(id)
+    if (!entry) throw new Error(`SessionManager.getSessionStats(): unknown session '${id}'`)
+    return entry.client.getSessionStats()
+  }
+
+  /**
    * Close an active session by its stable ID.
    *
    * Sequence:

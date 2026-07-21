@@ -6,10 +6,10 @@
 // `import type` is fully erased at compile/bundle time — zero runtime footprint
 // in the renderer bundle.  Bundlers (Vite, esbuild) strip type-only imports before
 // emitting JS, so @opengsd/contracts never ships to the browser context.
-import type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo } from '@opengsd/contracts'
+import type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent } from '@opengsd/contracts'
 
 // Re-export so callers import from @shared/types, not directly from the package.
-export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo }
+export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent }
 
 export type SessionId = string
 
@@ -74,6 +74,16 @@ export interface GsdApi {
     provider: string,
     modelId: string,
   ): Promise<{ provider: string; id: string }>
+  /**
+   * Fetch the RPC session state (model info, thinking level, streaming status).
+   * Returns `null` when the session is unknown or pi returns an error.
+   */
+  getRpcState(sessionId: SessionId): Promise<RpcSessionState | null>
+  /**
+   * Fetch cumulative session statistics (cost, token counts, message counts).
+   * Returns `null` when the session is unknown or pi returns an error.
+   */
+  getSessionStats(sessionId: SessionId): Promise<SessionStats | null>
   listSessions(): Promise<SessionRecord[]>
   closeSession(sessionId: SessionId): Promise<void>
   renameSession(sessionId: SessionId, name: string): Promise<void>
