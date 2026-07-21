@@ -11,6 +11,7 @@ import type {
   StateChangedPayload,
 } from '../session/state-machine'
 import type { SessionManager } from '../session/session-manager'
+import type { RegistryStore } from '../persistence/registry-store'
 
 // ── IPC channel constants ──────────────────────────────────────────────────────
 
@@ -39,6 +40,13 @@ export const IPC = {
    * the new session id.
    */
   REASSIGN_SESSION_CWD: 'reassignSessionCwd',
+  /**
+   * Persist the active tab's project CWD for restore across reboots.
+   * The renderer fires this on every setActiveTab call (fire-and-forget).
+   * CWD is used instead of session id because session ids are regenerated
+   * by session-manager.open() on every launch.
+   */
+  SAVE_WINDOW_ACTIVE_TAB: 'saveWindowActiveTab',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -243,6 +251,8 @@ export function registerHandlers(
   manager: SessionManager,
   getAllWebContents?: GetAllWebContents,
   showBlockerToastFn: ShowBlockerToastFn = () => {},
+  registryStore?: RegistryStore,
+  getWinId?: () => string,
 ): { cleanup: () => void; handleOpenProject: (cwd: string) => Promise<SessionId> } {
   const getWc: GetAllWebContents =
     getAllWebContents ?? (() => electronWebContents.getAllWebContents())
@@ -575,6 +585,27 @@ export function registerHandlers(
     },
   )
 
+  // ── saveWindowActiveTab ─────────────────────────────────────────────────────
+  //
+  // Persists the active tab's project CWD so it survives a reboot.
+  // The CWD is the stable cross-reboot identifier — session ids are regenerated
+  // by session-manager.open() on every launch, making them useless for restore.
+  //
+  // The handler is a no-op if registryStore or winId are not available (e.g.
+  // in unit tests that call registerHandlers without injecting them).
+  ipcMain.handle(
+    IPC.SAVE_WINDOW_ACTIVE_TAB,
+    (_event, cwd: string): void => {
+      const winId = getWinId?.()
+      if (registryStore && winId) {
+        registryStore.updateWindowActiveTab(winId, cwd)
+        console.log(
+          `[window-active-tab] saved activeTabCwd="${cwd}" for window ${winId}`,
+        )
+      }
+    },
+  )
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -591,6 +622,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.RENAME_SESSION)
     ipcMain.removeHandler(IPC.LIST_MISSING_PATHS)
     ipcMain.removeHandler(IPC.REASSIGN_SESSION_CWD)
+    ipcMain.removeHandler(IPC.SAVE_WINDOW_ACTIVE_TAB)
 
     for (const [, entry] of sessions) {
       entry.cleanup()

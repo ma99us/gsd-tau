@@ -154,6 +154,41 @@ export class RegistryStore {
   }
 
   /**
+   * Upsert the active-tab CWD for `windowId` and schedule a debounced flush.
+   *
+   * Mutates `_windows` immediately (no debounce on the in-memory update) so
+   * that the synchronous `flush()` call in `win.on('close')` always captures
+   * the latest value, even when the debounce window has not yet elapsed.
+   *
+   * The stable CWD (not the ephemeral session ID) is stored because
+   * session-manager.open() generates a new random ID on every launch.
+   */
+  updateWindowActiveTab(windowId: string, cwd: string): void {
+    const idx = this._windows.findIndex((w) => w.id === windowId)
+    if (idx >= 0) {
+      this._windows[idx] = { ...this._windows[idx], activeTabCwd: cwd }
+    } else {
+      // Window not yet registered (e.g. very first tab open before bounds are saved).
+      // Create a minimal record so the CWD is not lost.
+      this._windows.push({
+        id: windowId,
+        tabIds: [],
+        activeTabId: '',
+        activeTabCwd: cwd,
+        bounds: { x: 0, y: 0, width: 1200, height: 800 },
+      })
+    }
+
+    const base: RegistryV1 = this._pending ?? {
+      version: 1,
+      sessions: [],
+      windows: [],
+      mruOrder: [],
+    }
+    this.save(base)
+  }
+
+  /**
    * Flush any pending save immediately (bypass debounce).
    *
    * Call this on graceful shutdown so in-flight mutations reach disk even

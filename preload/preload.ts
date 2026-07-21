@@ -33,6 +33,11 @@ const IPC = {
   RENAME_SESSION: 'renameSession',
   LIST_MISSING_PATHS: 'listMissingPaths',
   REASSIGN_SESSION_CWD: 'reassignSessionCwd',
+  /**
+   * Persist the active tab's project CWD for restore across reboots.
+   * Mirrored from main/ipc/handlers.ts IPC.SAVE_WINDOW_ACTIVE_TAB.
+   */
+  SAVE_WINDOW_ACTIVE_TAB: 'saveWindowActiveTab',
 } as const
 
 const PUSH = {
@@ -121,6 +126,13 @@ export function createGsdApi(): GsdApi {
       newCwd: string,
     ): Promise<{ newSessionId: SessionId }> =>
       ipcRenderer.invoke(IPC.REASSIGN_SESSION_CWD, sessionId, newCwd),
+
+    /**
+     * Persist the active tab's project CWD for cross-reboot restore.
+     * Fire-and-forget — called from `setActiveTab` without awaiting.
+     */
+    saveWindowActiveTab: (cwd: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.SAVE_WINDOW_ACTIVE_TAB, cwd),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 

@@ -105,6 +105,7 @@ function makeGsdMock(overrides: Record<string, unknown> = {}) {
         return () => { missingPathCb = null }
       },
     ),
+    saveWindowActiveTab: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
 
@@ -327,6 +328,8 @@ describe('useSessionsStore', () => {
 
   describe('setActiveTab()', () => {
     it('updates activeTabId', () => {
+      const { gsd } = makeGsdMock()
+      vi.stubGlobal('gsd', gsd)
       useSessionsStore.setState({
         sessions: { a: makeTabEntry('a', '/a'), b: makeTabEntry('b', '/b') },
         tabOrder: ['a', 'b'],
