@@ -24,8 +24,11 @@
 - [x] **S04: Tab Bar and Open Project Flyout** `risk:low` `depends:[S03]`
   > After this: Tab bar with three projects; reorder by drag; right-click menu works; Open Project flyout shows recents.
 
-- [ ] **S05: Restore Flow, Missing-file Banner, Window Bounds, Tests** `risk:medium` `depends:[S04]`
+- [x] **S05: Restore Flow, Missing-file Banner, Window Bounds, Tests** `risk:medium` `depends:[S04]`
   > After this: Playwright test: open 3 tabs, quit, relaunch, all 3 restore with history.
+
+- [ ] **S06: Reboot Test Fix, activeTabId Restore, and UAT Completion** `risk:medium` `depends:[S05]`
+  > After this: After this: Playwright 3-tab reboot test passes with exact active-tab assertion; missing-path banner and --open-project forwarding manually verified; 0 failing tests in sessions-store.test.ts.
 
 ## Boundary Map
 

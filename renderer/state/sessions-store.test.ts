@@ -18,6 +18,7 @@ import type {
   SessionState,
   RpcExtensionUIRequest,
   RestoreResult,
+  MissingPathInfo,
   Unsubscribe,
 } from '@shared/types'
 
@@ -64,9 +65,11 @@ function makeGsdMock(overrides: Record<string, unknown> = {}) {
   const uiRequestAddedCbs: Record<SessionId, (req: RpcExtensionUIRequest) => void> = {}
   const uiRequestRemovedCbs: Record<SessionId, (id: string) => void> = {}
   let restoreCompleteCb: ((result: RestoreResult) => void) | null = null
+  let missingPathCb: ((info: MissingPathInfo) => void) | null = null
 
   const gsd = {
     listSessions: vi.fn().mockResolvedValue([]),
+    listMissingPaths: vi.fn().mockResolvedValue([]),
     openProject: vi.fn().mockResolvedValue('new-id'),
     closeSession: vi.fn().mockResolvedValue(undefined),
     renameSession: vi.fn().mockResolvedValue(undefined),
@@ -96,6 +99,12 @@ function makeGsdMock(overrides: Record<string, unknown> = {}) {
         return () => { restoreCompleteCb = null }
       },
     ),
+    onSessionMissingPath: vi.fn().mockImplementation(
+      (cb: (info: MissingPathInfo) => void): Unsubscribe => {
+        missingPathCb = cb
+        return () => { missingPathCb = null }
+      },
+    ),
     ...overrides,
   }
 
@@ -104,6 +113,7 @@ function makeGsdMock(overrides: Record<string, unknown> = {}) {
     uiRequestAdded: uiRequestAddedCbs,
     uiRequestRemoved: uiRequestRemovedCbs,
     get restoreComplete() { return restoreCompleteCb },
+    get missingPath() { return missingPathCb },
   }
 
   return { gsd, callbacks }

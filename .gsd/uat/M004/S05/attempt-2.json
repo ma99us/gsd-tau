@@ -1,0 +1,199 @@
+{
+  "runId": "uat:M004:S05:attempt-2",
+  "attempt": 2,
+  "milestoneId": "M004",
+  "sliceId": "S05",
+  "uatType": "runtime-executable",
+  "verdict": "FAIL",
+  "gateVerdict": "flag",
+  "evaluatedAt": "2026-07-21T15:57:53.571Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "UAT-PRECOND-01",
+      "description": "Fixture directories (project-a/b/c) and key S05 source files exist",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "d88f5a38-7b38-42f9-a28f-aa7e8acad3a4"
+        }
+      ],
+      "notes": "All 3 fixture dirs and all key source files (MissingSessionBanner.tsx, clamp-bounds.ts/test, registry-store.ts/test, session-manager.ts, handlers.ts, index.ts) exist."
+    },
+    {
+      "id": "UAT-SMOKE-01",
+      "description": "Smoke test: pnpm exec vitest run clamp-bounds.test.ts registry-store.test.ts — 41 tests pass in <3s",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "1eeb8676-6658-4ee3-93b9-f9e3eae20f55"
+        }
+      ],
+      "notes": "2 test files, 41 tests passed in 664ms. Confirms bounds-clamping and registry-merge logic intact."
+    },
+    {
+      "id": "UAT-TS-01",
+      "description": "TypeScript noEmit check passes with zero errors",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "024b668d-c02a-434b-a2ee-0e88f1a902b6"
+        }
+      ],
+      "notes": "pnpm exec tsc --noEmit exited 0 — no type errors."
+    },
+    {
+      "id": "UAT-E2E-01",
+      "description": "Reboot-cycle Playwright test: 5 cycles, 3 tabs survive each quit-relaunch",
+      "mode": "runtime",
+      "result": "FAIL",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "9a28d8bb-ef68-4b8c-9200-a94c9f67c2c8"
+        },
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "2def846e-377a-4be4-b72c-471c841f6aad"
+        }
+      ],
+      "notes": "test/reboot-cycle.spec.ts:179 — '[role=\"tab\"]:has-text(\"project-a\")' not visible after relaunch (90s timeout). Error context shows a 'banner' landmark with the fixture-a path and a chat textbox visible, suggesting the session content rendered but the tab bar did not restore the tab label correctly. 8 other tests (smoke + ui-requests) all passed."
+    },
+    {
+      "id": "UAT-BANNER-ARTIFACT",
+      "description": "MissingSessionBanner implements Locate/Remove/Dismiss actions",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "19fa078c-b0c1-404c-8793-57a5bfa1ba07"
+        },
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "7b12bdf1-5704-4a7a-b775-63825f5ff257"
+        }
+      ],
+      "notes": "Locate/Remove/Dismiss all found in MissingSessionBanner.tsx. isMissingPath and listMissingPaths correctly live in parent components (App.tsx, SessionView.tsx, sessions-store.ts), not in the banner itself."
+    },
+    {
+      "id": "UAT-BOUNDS-ARTIFACT",
+      "description": "clamp-bounds.ts is Electron-free module; RegistryStore has bounds field, flush-on-close, and merge logic",
+      "mode": "artifact",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "810ebe0e-aac4-4d02-af81-272ce39b26cc"
+        }
+      ],
+      "notes": "clamp-bounds.ts has no Electron import and exports a clamp function. registry-store.ts has bounds, flush/close, and merge logic. main/index.ts has win.on('close') flush."
+    },
+    {
+      "id": "UAT-MISSING-BANNER-RUNTIME",
+      "description": "Missing-path banner appears with Locate/Remove/Dismiss when session cwd deleted before relaunch",
+      "mode": "human-follow-up",
+      "result": "NEEDS-HUMAN",
+      "evidence": [],
+      "notes": "Requires live interactive Electron session. Steps: open project tab, delete directory, quit+relaunch, confirm MissingSessionBanner shows with the 3 action buttons; no pi process spawned for that tab."
+    },
+    {
+      "id": "UAT-BOUNDS-RUNTIME",
+      "description": "Window bounds persisted and restored: resize/move, quit, relaunch opens at same position",
+      "mode": "human-follow-up",
+      "result": "NEEDS-HUMAN",
+      "evidence": [],
+      "notes": "Requires live interactive Electron session. Resize+move window, quit within 1s (synchronous flush), relaunch, observe window at same position/size."
+    },
+    {
+      "id": "UAT-OFFSCREEN",
+      "description": "Off-screen bounds clamped to nearest display workArea on relaunch",
+      "mode": "human-follow-up",
+      "result": "NEEDS-HUMAN",
+      "evidence": [],
+      "notes": "Requires live interactive Electron session. Manually set registry WindowRecord.bounds outside display workArea, relaunch, confirm window clamped."
+    },
+    {
+      "id": "UAT-LOCATE",
+      "description": "Locate button on MissingSessionBanner reassigns cwd and opens live session",
+      "mode": "human-follow-up",
+      "result": "NEEDS-HUMAN",
+      "evidence": [],
+      "notes": "Requires live interactive Electron session. With missing-path banner visible, click Locate, choose valid dir, confirm banner disappears and session opens; registry updated."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "Playwright reboot-cycle test fails — after 5-cycle relaunch, [role=\"tab\"]:has-text(\"project-a\") not found within 90s timeout; 41 vitest unit tests and TypeScript check pass."
+}
