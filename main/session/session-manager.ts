@@ -149,13 +149,44 @@ export class SessionManager {
   }
 
   /**
+   * Fetch available slash commands for a session.
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async getCommands(id: SessionId): Promise<import('@opengsd/rpc-client').RpcSlashCommand[]> {
+    const entry = this._sessions.get(id)
+    if (!entry) throw new Error(`SessionManager.getCommands(): unknown session '${id}'`)
+    return entry.client.getCommands()
+  }
+
+  /**
+   * Fetch available models for a session.
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async getAvailableModels(id: SessionId): Promise<import('@opengsd/rpc-client').ModelInfo[]> {
+    const entry = this._sessions.get(id)
+    if (!entry) throw new Error(`SessionManager.getAvailableModels(): unknown session '${id}'`)
+    return entry.client.getAvailableModels()
+  }
+
+  /**
+   * Switch model for a session.
+   * @throws `Error` if no session with `id` is registered.
+   */
+  async setModel(id: SessionId, provider: string, modelId: string): Promise<{ provider: string; id: string }> {
+    const entry = this._sessions.get(id)
+    if (!entry) throw new Error(`SessionManager.setModel(): unknown session '${id}'`)
+    return entry.client.setModel(provider, modelId)
+  }
+
+  /**
    * Close an active session by its stable ID.
    *
    * Sequence:
    * 1. Remove from the internal map (prevents re-entrant double-close).
-   * 2. Call `handle.stop()` to drain the event pump.
-   * 3. Call `client.shutdown()` with a 3 s timeout.
-   *    If it doesn't resolve in time, fall back to `client.stop()`.
+   * 2. Run the pre-shutdown hook (cancel open UI-request blockers).
+   * 3. Call `client.shutdown()` with a 3 s timeout — pi receives a clean signal
+   *    while the transport is still live.
+   * 4. Call `handle.stop()` to drain the event pump and stop the transport.
    *
    * Idempotent for unknown IDs — resolves immediately if `id` is not found.
    */
@@ -189,10 +220,10 @@ export class SessionManager {
       }
     }
 
-    // Step 2: stop the event pump and underlying client.stop() (via handle).
-    await handle.stop()
-
-    // Step 3: request a graceful pi shutdown, with a hard 3 s fallback.
+    // Step 2: request a graceful pi shutdown BEFORE stopping the event pump.
+    // client.stop() (called inside handle.stop()) kills the transport; if we
+    // call shutdown() after that the client is already gone and throws
+    // "Client not started". Shutdown first so pi receives the signal cleanly.
     const verdict = await Promise.race([
       client.shutdown().then(() => 'ok' as const),
       new Promise<'timeout'>((resolve) =>
@@ -204,12 +235,18 @@ export class SessionManager {
       console.warn(
         `[SessionManager] shutdown timed out for session ${id} after ${Date.now() - closeStart}ms — falling back to stop()`,
       )
-      await client.stop().catch(() => undefined)
     } else {
       console.log(
-        `[SessionManager] session ${id} closed in ${Date.now() - closeStart}ms`,
+        `[SessionManager] session ${id} pi shutdown ack in ${Date.now() - closeStart}ms`,
       )
     }
+
+    // Step 3: stop the event pump and underlying transport regardless of verdict.
+    await handle.stop()
+
+    console.log(
+      `[SessionManager] session ${id} closed in ${Date.now() - closeStart}ms`,
+    )
   }
 
   // ── diagnostics ─────────────────────────────────────────────────────────────

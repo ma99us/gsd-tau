@@ -6,10 +6,10 @@
 // `import type` is fully erased at compile/bundle time — zero runtime footprint
 // in the renderer bundle.  Bundlers (Vite, esbuild) strip type-only imports before
 // emitting JS, so @opengsd/contracts never ships to the browser context.
-import type { RpcExtensionUIRequest, RpcExtensionUIResponse } from '@opengsd/contracts'
+import type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo } from '@opengsd/contracts'
 
 // Re-export so callers import from @shared/types, not directly from the package.
-export type { RpcExtensionUIRequest, RpcExtensionUIResponse }
+export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo }
 
 export type SessionId = string
 
@@ -53,6 +53,13 @@ export interface GsdApi {
     requestId: string,
     response: UiResponseInput,
   ): Promise<{ ok: boolean; error?: string }>
+  getCommands(sessionId: SessionId): Promise<RpcSlashCommand[]>
+  getAvailableModels(sessionId: SessionId): Promise<ModelInfo[]>
+  setModel(
+    sessionId: SessionId,
+    provider: string,
+    modelId: string,
+  ): Promise<{ provider: string; id: string }>
   onEvent(sessionId: SessionId, cb: (event: SessionEvent) => void): Unsubscribe
   onStateChange(sessionId: SessionId, cb: (state: SessionState) => void): Unsubscribe
   onUiRequestAdded(

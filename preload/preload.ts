@@ -8,6 +8,8 @@ import type {
   Unsubscribe,
   RpcExtensionUIRequest,
   UiResponseInput,
+  RpcSlashCommand,
+  ModelInfo,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -20,6 +22,9 @@ const IPC = {
   ABORT: 'abort',
   GET_STATE: 'getState',
   RESPOND_UI: 'respondUI',
+  GET_COMMANDS: 'getCommands',
+  GET_AVAILABLE_MODELS: 'getAvailableModels',
+  SET_MODEL: 'setModel',
 } as const
 
 const PUSH = {
@@ -67,6 +72,19 @@ export function createGsdApi(): GsdApi {
       response: UiResponseInput,
     ): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.RESPOND_UI, sessionId, requestId, response),
+
+    getCommands: (sessionId: SessionId): Promise<RpcSlashCommand[]> =>
+      ipcRenderer.invoke(IPC.GET_COMMANDS, sessionId),
+
+    getAvailableModels: (sessionId: SessionId): Promise<ModelInfo[]> =>
+      ipcRenderer.invoke(IPC.GET_AVAILABLE_MODELS, sessionId),
+
+    setModel: (
+      sessionId: SessionId,
+      provider: string,
+      modelId: string,
+    ): Promise<{ provider: string; id: string }> =>
+      ipcRenderer.invoke(IPC.SET_MODEL, sessionId, provider, modelId),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 

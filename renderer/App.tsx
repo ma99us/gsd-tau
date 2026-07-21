@@ -331,7 +331,7 @@ function App(): JSX.Element {
       <TurnList turns={turns} />
 
       {/* Composer pinned to bottom */}
-      <Composer onSend={text => void send(text)} disabled={isWorking || isStopped} />
+      <Composer onSend={text => void send(text)} sessionId={sessionId} disabled={isWorking || isStopped} />
 
       {/* Inline toasts — fixed position, overlaid above composer */}
       <InlineToast toasts={toasts} onDismiss={dismissToast} />

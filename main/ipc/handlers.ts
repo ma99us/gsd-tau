@@ -22,6 +22,9 @@ export const IPC = {
   ABORT: 'abort',
   GET_STATE: 'getState',
   RESPOND_UI: 'respondUI',
+  GET_COMMANDS: 'getCommands',
+  GET_AVAILABLE_MODELS: 'getAvailableModels',
+  SET_MODEL: 'setModel',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -430,6 +433,30 @@ export function registerHandlers(
     },
   )
 
+  // ── getCommands ──────────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.GET_COMMANDS,
+    async (_event, sessionId: SessionId) => {
+      return manager.getCommands(sessionId)
+    },
+  )
+
+  // ── getAvailableModels ───────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.GET_AVAILABLE_MODELS,
+    async (_event, sessionId: SessionId) => {
+      return manager.getAvailableModels(sessionId)
+    },
+  )
+
+  // ── setModel ─────────────────────────────────────────────────────────────────
+  ipcMain.handle(
+    IPC.SET_MODEL,
+    async (_event, sessionId: SessionId, provider: string, modelId: string) => {
+      return manager.setModel(sessionId, provider, modelId)
+    },
+  )
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   return function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -438,6 +465,9 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.ABORT)
     ipcMain.removeHandler(IPC.GET_STATE)
     ipcMain.removeHandler(IPC.RESPOND_UI)
+    ipcMain.removeHandler(IPC.GET_COMMANDS)
+    ipcMain.removeHandler(IPC.GET_AVAILABLE_MODELS)
+    ipcMain.removeHandler(IPC.SET_MODEL)
 
     for (const [, entry] of sessions) {
       entry.cleanup()

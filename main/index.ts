@@ -2,10 +2,12 @@
 // console.* so all subsequent output is captured to %APPDATA%\gsd-tau\logs\main.log.
 import './logger'
 import { app, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { existsSync, readFileSync, readdirSync } from 'fs'
 import { SessionManager } from './session/session-manager'
 import { registerHandlers } from './ipc/handlers'
 import { showBlockerToast } from './os/notifications'
+import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
 
 // ── SessionManager singleton ───────────────────────────────────────────────────
 
@@ -107,6 +109,13 @@ function createMainWindow(): BrowserWindow {
     win.show()
   })
 
+  // Closing the window must always quit the app and cleanly shut down all
+  // pi sessions. `window-all-closed` + app.quit() handles the normal path;
+  // this direct handler is a belt-and-suspenders guard.
+  win.on('close', () => {
+    app.quit()
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -116,8 +125,89 @@ function createMainWindow(): BrowserWindow {
   return win
 }
 
+// ── Startup diagnostics ───────────────────────────────────────────────────────
+
+/**
+ * Read a JSON file and return a parsed object, or null on any error.
+ */
+function readJson(filePath: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Emit verbose startup diagnostics to the log.
+ * Runs after app.whenReady() so app paths are available.
+ */
+function logStartupDiagnostics(): void {
+  const appPkg = readJson(join(__dirname, '..', '..', 'package.json'))
+  const appVersion = typeof appPkg?.version === 'string' ? appPkg.version : 'unknown'
+
+  console.log(`[startup] ── gsd-tau v${appVersion} ─────────────────────────────`)
+  console.log(`[startup] app.getPath('userData'): ${app.getPath('userData')}`)
+  console.log(`[startup] app.getPath('appData'):  ${app.getPath('appData')}`)
+  console.log(`[startup] process.versions.electron: ${process.versions.electron}`)
+  console.log(`[startup] process.versions.node:     ${process.versions.node}`)
+  console.log(`[startup] process.execPath:          ${process.execPath}`)
+
+  // ── pi binary resolution ──
+  let piPath: string | null = null
+  try {
+    piPath = resolvePiBinary()
+    console.log(`[startup] pi binary resolved: ${piPath}`)
+  } catch (err) {
+    const msg = err instanceof ResolvePiError ? err.message : String(err)
+    console.warn(`[startup] pi binary NOT found: ${msg}`)
+  }
+
+  // ── pi version ──
+  if (piPath) {
+    const piPkgPath = join(dirname(piPath), '..', 'package.json')
+    const piPkg = readJson(piPkgPath)
+    const piVersion = typeof piPkg?.version === 'string' ? piPkg.version : 'unknown'
+    console.log(`[startup] pi version: ${piVersion} (from ${piPkgPath})`)
+  }
+
+  // ── GSD_PI_PATH override ──
+  if (process.env.GSD_PI_PATH) {
+    console.log(`[startup] GSD_PI_PATH override: ${process.env.GSD_PI_PATH}`)
+  }
+  if (process.env.GSD_TAU_MOCK_PI) {
+    console.log(`[startup] GSD_TAU_MOCK_PI override: ${process.env.GSD_TAU_MOCK_PI}`)
+  }
+
+  // ── sessions directory ──
+  const sessionsDir = join(
+    process.env.USERPROFILE ?? process.env.HOME ?? '',
+    '.gsd',
+    'agent',
+    'sessions',
+  )
+  console.log(`[startup] pi sessions dir: ${sessionsDir}`)
+  if (existsSync(sessionsDir)) {
+    try {
+      const entries = readdirSync(sessionsDir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name)
+        .sort()
+        .slice(-5) // last 5 project session dirs
+      console.log(`[startup] recent session dirs (last 5): ${entries.join(', ') || '(none)'}`)
+    } catch {
+      console.log(`[startup] recent session dirs: (could not read)`)
+    }
+  } else {
+    console.log(`[startup] pi sessions dir: (not found)`)
+  }
+
+  console.log(`[startup] ──────────────────────────────────────────────────────`)
+}
+
 app.whenReady().then(() => {
   app.setAppUserModelId('io.opengsd.gsd-tau')
+  logStartupDiagnostics()
   const cleanupHandlers = registerHandlers(sessionManager, undefined, showBlockerToast)
   // Remove IPC handlers when the app fully quits so Electron does not warn
   // about lingering handlers after the main process tears down.
@@ -132,7 +222,6 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  // gsd-tau is Windows-only; always quit when the last window closes.
+  app.quit()
 })

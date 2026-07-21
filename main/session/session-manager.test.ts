@@ -220,8 +220,10 @@ describe('SessionManager', () => {
       await vi.advanceTimersByTimeAsync(3_001)
       await closePromise
 
-      // stop() is called twice: once by handle.stop() and once by the fallback.
-      expect(vi.mocked(slowClient.stop)).toHaveBeenCalledTimes(2)
+      // stop() is called once by handle.stop() — the explicit fallback
+      // client.stop() was removed since handle.stop() always runs after
+      // client.shutdown() regardless of timeout.
+      expect(vi.mocked(slowClient.stop)).toHaveBeenCalledTimes(1)
     })
 
     it('does NOT invoke the fallback stop() when shutdown resolves within 3 s', async () => {
