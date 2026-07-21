@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-21T12:36:36.859Z",
+  "lastProjectedAt": "2026-07-21T12:38:13.676Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -99,7 +99,7 @@
       ]
     },
     "phases/04-multi-project-tabs-persistence-resume/04-01-PLAN.md": {
-      "sha": "f026f8ddf62fa73e",
+      "sha": "ff9bd5dd45a04784",
       "entities": [
         "M004",
         "M004/S01"
@@ -382,6 +382,252 @@
       "entities": [
         "M003",
         "M003/S06"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-01-ASSESSMENT.md": {
+      "sha": "a126e2fbcded707f",
+      "entities": [
+        "M003",
+        "M003/S01"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-01-SUMMARY.md": {
+      "sha": "74f9b146d9669cc2",
+      "entities": [
+        "M003",
+        "M003/S01"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-01-UAT.md": {
+      "sha": "9e3dcc96b636aaa8",
+      "entities": [
+        "M003",
+        "M003/S01"
+      ]
+    },
+    "phases/03-ui-request-bridge/S01-T01-SUMMARY.md": {
+      "sha": "7c9468de37781d44",
+      "entities": [
+        "M003",
+        "M003/S01",
+        "M003/S01/T01"
+      ]
+    },
+    "phases/03-ui-request-bridge/S01-T02-SUMMARY.md": {
+      "sha": "7037c3222f7ed347",
+      "entities": [
+        "M003",
+        "M003/S01",
+        "M003/S01/T02"
+      ]
+    },
+    "phases/03-ui-request-bridge/S01-T03-SUMMARY.md": {
+      "sha": "47b63285ef3c9671",
+      "entities": [
+        "M003",
+        "M003/S01",
+        "M003/S01/T03"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-02-ASSESSMENT.md": {
+      "sha": "cf28c63bc3789e07",
+      "entities": [
+        "M003",
+        "M003/S02"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-02-SUMMARY.md": {
+      "sha": "038449707b7ba330",
+      "entities": [
+        "M003",
+        "M003/S02"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-02-UAT.md": {
+      "sha": "72190cfd47f28f36",
+      "entities": [
+        "M003",
+        "M003/S02"
+      ]
+    },
+    "phases/03-ui-request-bridge/S02-T04-SUMMARY.md": {
+      "sha": "04386cad54c7dc63",
+      "entities": [
+        "M003",
+        "M003/S02",
+        "M003/S02/T04"
+      ]
+    },
+    "phases/03-ui-request-bridge/S02-T05-SUMMARY.md": {
+      "sha": "be65e52b23613def",
+      "entities": [
+        "M003",
+        "M003/S02",
+        "M003/S02/T05"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-03-ASSESSMENT.md": {
+      "sha": "1697723826b1ffd7",
+      "entities": [
+        "M003",
+        "M003/S03"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-03-SUMMARY.md": {
+      "sha": "c9f48e829f3c3a6a",
+      "entities": [
+        "M003",
+        "M003/S03"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-03-UAT.md": {
+      "sha": "e9349aa5881fb0fb",
+      "entities": [
+        "M003",
+        "M003/S03"
+      ]
+    },
+    "phases/03-ui-request-bridge/S03-T06-SUMMARY.md": {
+      "sha": "088174ab8c67066c",
+      "entities": [
+        "M003",
+        "M003/S03",
+        "M003/S03/T06"
+      ]
+    },
+    "phases/03-ui-request-bridge/S03-T07-SUMMARY.md": {
+      "sha": "0201de103e847be1",
+      "entities": [
+        "M003",
+        "M003/S03",
+        "M003/S03/T07"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-04-ASSESSMENT.md": {
+      "sha": "31e2b59e1dfacb84",
+      "entities": [
+        "M003",
+        "M003/S04"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-04-SUMMARY.md": {
+      "sha": "5df19c256820998c",
+      "entities": [
+        "M003",
+        "M003/S04"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-04-UAT.md": {
+      "sha": "c8881e02edc0fe3e",
+      "entities": [
+        "M003",
+        "M003/S04"
+      ]
+    },
+    "phases/03-ui-request-bridge/S04-T08-SUMMARY.md": {
+      "sha": "2d67cdd7a803a2ac",
+      "entities": [
+        "M003",
+        "M003/S04",
+        "M003/S04/T08"
+      ]
+    },
+    "phases/03-ui-request-bridge/S04-T09-SUMMARY.md": {
+      "sha": "ac7eafbf60239ee6",
+      "entities": [
+        "M003",
+        "M003/S04",
+        "M003/S04/T09"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-05-SUMMARY.md": {
+      "sha": "6b19465a039123ea",
+      "entities": [
+        "M003",
+        "M003/S05"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-05-UAT.md": {
+      "sha": "fb64f7e2bf9d9dec",
+      "entities": [
+        "M003",
+        "M003/S05"
+      ]
+    },
+    "phases/03-ui-request-bridge/S05-T10-SUMMARY.md": {
+      "sha": "3e8149d35e534bbf",
+      "entities": [
+        "M003",
+        "M003/S05",
+        "M003/S05/T10"
+      ]
+    },
+    "phases/03-ui-request-bridge/S05-T11-SUMMARY.md": {
+      "sha": "94c6f186b09c7d34",
+      "entities": [
+        "M003",
+        "M003/S05",
+        "M003/S05/T11"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-06-ASSESSMENT.md": {
+      "sha": "665dae1274b3c410",
+      "entities": [
+        "M003",
+        "M003/S06"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-06-RESEARCH.md": {
+      "sha": "4f5d1ee72694dd09",
+      "entities": [
+        "M003",
+        "M003/S06"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-06-SUMMARY.md": {
+      "sha": "58fa9ed2741ef4e9",
+      "entities": [
+        "M003",
+        "M003/S06"
+      ]
+    },
+    "phases/03-ui-request-bridge/03-06-UAT.md": {
+      "sha": "8518565ecff33c08",
+      "entities": [
+        "M003",
+        "M003/S06"
+      ]
+    },
+    "phases/03-ui-request-bridge/S06-T01-SUMMARY.md": {
+      "sha": "2782102e0668df63",
+      "entities": [
+        "M003",
+        "M003/S06",
+        "M003/S06/T01"
+      ]
+    },
+    "phases/03-ui-request-bridge/S06-T02-SUMMARY.md": {
+      "sha": "0586b7205e737b92",
+      "entities": [
+        "M003",
+        "M003/S06",
+        "M003/S06/T02"
+      ]
+    },
+    "phases/03-ui-request-bridge/S06-T03-SUMMARY.md": {
+      "sha": "8705daaff7093c33",
+      "entities": [
+        "M003",
+        "M003/S06",
+        "M003/S06/T03"
+      ]
+    },
+    "phases/03-ui-request-bridge/S06-T04-SUMMARY.md": {
+      "sha": "963abbd60368b09c",
+      "entities": [
+        "M003",
+        "M003/S06",
+        "M003/S06/T04"
       ]
     }
   },

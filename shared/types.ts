@@ -132,3 +132,60 @@ export interface PiInitInfo {
   sessionId: string
   capabilities: PiCapabilities
 }
+
+// ---------------------------------------------------------------------------
+// Persistence registry types (Phase 4 — multi-project persistence)
+// ---------------------------------------------------------------------------
+
+/**
+ * Persistent record for one pi session.
+ * Stored in the app-data registry so the session can be restored on relaunch.
+ */
+export interface SessionRecord {
+  /** Stable identifier — matches the pi RPC session id. */
+  id: SessionId
+  /** Absolute path to the project directory. */
+  cwd: string
+  /** Human-readable label (directory base-name by default). */
+  displayName: string
+  /**
+   * Path to the pi session file used by `--resume`.
+   * Absent when the session was never saved by pi.
+   */
+  sessionFile?: string
+  /** ISO-8601 timestamp of the most recent open. */
+  lastOpenedAt: string
+  /** True when the session was in auto-mode at last checkpoint. */
+  wasAutoRunning: boolean
+}
+
+/**
+ * Persistent record for one BrowserWindow.
+ * Owns an ordered list of tab (session) ids and tracks the active tab.
+ */
+export interface WindowRecord {
+  /** Electron BrowserWindow id (number cast to string for JSON-safety). */
+  id: string
+  /** Ordered list of session ids displayed as tabs in this window. */
+  tabIds: string[]
+  /** Which tab is currently focused. */
+  activeTabId: string
+  /** Last-known window geometry for restore. */
+  bounds: { x: number; y: number; width: number; height: number }
+}
+
+/**
+ * Root registry schema v1.
+ * The `version` literal enables future schema migration — never widen it
+ * without bumping the value and writing a migration in RegistryStore.
+ */
+export interface RegistryV1 {
+  version: 1
+  sessions: SessionRecord[]
+  windows: WindowRecord[]
+  /**
+   * Most-recently-used order: session ids ordered from most to least recent.
+   * Used to populate the [+] flyout recents list.
+   */
+  mruOrder: string[]
+}
