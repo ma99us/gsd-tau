@@ -1,21 +1,21 @@
 {
   "nodes": [
     {
-      "id": "milestone:M004",
-      "label": "M004: Multi-project Tabs, Persistence, Resume",
+      "id": "milestone:M005",
+      "label": "M005: Model Picker, Context Gauge, Copilot Quota",
       "type": "milestone",
-      "description": "Active milestone: M004",
+      "description": "Active milestone: M005",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     },
     {
-      "id": "concept:phase:validating-milestone",
-      "label": "Phase: validating-milestone",
+      "id": "concept:phase:planning",
+      "label": "Phase: planning",
       "type": "concept",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     }
   ],
   "edges": [],
-  "builtAt": "2026-07-21T16:20:49.672Z"
+  "builtAt": "2026-07-21T18:30:40.732Z"
 }

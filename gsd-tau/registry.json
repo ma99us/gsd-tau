@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "sessions": [],
+  "windows": [
+    {
+      "id": "1",
+      "tabIds": [],
+      "activeTabId": "",
+      "activeTabCwd": "C:\\Users\\Mike\\AppData\\Local\\Temp\\gsd-tau-uireq-KPxx6Q",
+      "bounds": {
+        "x": 558,
+        "y": 231,
+        "width": 1201,
+        "height": 802
+      }
+    }
+  ],
+  "mruOrder": [],
+  "sessionHistory": {}
+}

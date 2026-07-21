@@ -12,7 +12,7 @@
 
 ## Slices
 
-- [ ] **S01: Session header: model chip and cost line** `risk:low` `depends:[]`
+- [x] **S01: Session header: model chip and cost line** `risk:low` `depends:[]`
   > After this: Open a project; header shows 'anthropic/claude-sonnet-4.6  $0.00'. Send a message; cost updates after execution_complete.
 
 - [ ] **S02: Model picker dropdown** `risk:medium` `depends:[S01]`
