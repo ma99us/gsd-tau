@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { RpcClient, SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId } from '../../shared/types'
+import type { SessionId, ThinkingLevel } from '../../shared/types'
 import type { BlockerTracker } from './blocker-tracker'
 import type { SessionStateMachine } from './state-machine'
 
@@ -102,6 +102,17 @@ export class SessionHandle extends EventEmitter {
       tracker.off('ui-request-added', onAdded)
       tracker.off('ui-request-removed', onRemoved)
     }
+  }
+
+  /**
+   * Set the thinking level on the underlying RpcClient.
+   * Delegates directly to `client.setThinkingLevel(level)`.
+   *
+   * Throws if the RpcClient rejects (e.g. unsupported model, RPC transport
+   * error). Callers should roll back any optimistic UI state on rejection.
+   */
+  setThinkingLevel(level: ThinkingLevel): Promise<void> {
+    return this._client.setThinkingLevel(level)
   }
 
   /**

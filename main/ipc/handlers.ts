@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } fr
 import type { WebContents } from 'electron'
 import { basename } from 'node:path'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo } from '../../shared/types'
+import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel } from '../../shared/types'
 import { BlockerTracker } from '../session/blocker-tracker'
 import { SessionStateMachine } from '../session/state-machine'
 import type {
@@ -57,6 +57,11 @@ export const IPC = {
    * Returns `null` on unknown session or RPC error.
    */
   GET_SESSION_STATS: 'getSessionStats',
+  /**
+   * Set the thinking level for a pi session.
+   * Returns null on error rather than throwing (callers roll back optimistic state).
+   */
+  SET_THINKING_LEVEL: 'setThinkingLevel',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -111,6 +116,8 @@ interface SessionEntry {
   tracker: BlockerTracker
   /** Forward a UI response to pi for the given request id. */
   sendUIResponse: (id: string, response: UiResponseInput) => void
+  /** Set the thinking level for this session; rejects on RPC error. */
+  setThinkingLevel: (level: ThinkingLevel) => Promise<void>
   /** Tears down the handle listeners and destroys the state machine. */
   cleanup: () => void
 }
@@ -413,6 +420,7 @@ export function registerHandlers(
         machine,
         tracker,
         sendUIResponse: (respId, resp) => handle.sendUIResponse(respId, resp),
+        setThinkingLevel: (level) => handle.setThinkingLevel(level),
         cleanup: () => {
           handle.off('event', onEvent)
           handle.off('transport-error', onTransportError)
@@ -579,6 +587,28 @@ export function registerHandlers(
     },
   )
 
+  // ── setThinkingLevel ──────────────────────────────────────────────────────────
+  //
+  // Uses the null-on-error pattern (like getRpcState) so the renderer can roll
+  // back optimistic state on transport failures without a full page crash.
+  // Main-process logs surface errors so they are visible in electron-log.
+  ipcMain.handle(
+    IPC.SET_THINKING_LEVEL,
+    async (_event, sessionId: SessionId, level: ThinkingLevel) => {
+      const entry = sessions.get(sessionId)
+      if (!entry) {
+        console.warn(`[handlers] setThinkingLevel: unknown session '${sessionId}'`)
+        return null
+      }
+      try {
+        await entry.setThinkingLevel(level)
+      } catch (err) {
+        console.error(`[handlers] setThinkingLevel failed for session ${sessionId}:`, err)
+        return null
+      }
+    },
+  )
+
   // ── listSessions ─────────────────────────────────────────────────────────────
   ipcMain.handle(
     IPC.LIST_SESSIONS,
@@ -686,6 +716,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.SAVE_WINDOW_ACTIVE_TAB)
     ipcMain.removeHandler(IPC.GET_RPC_STATE)
     ipcMain.removeHandler(IPC.GET_SESSION_STATS)
+    ipcMain.removeHandler(IPC.SET_THINKING_LEVEL)
 
     for (const [, entry] of sessions) {
       entry.cleanup()

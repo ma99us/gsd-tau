@@ -11,6 +11,21 @@ import type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, Mo
 // Re-export so callers import from @shared/types, not directly from the package.
 export type { RpcExtensionUIRequest, RpcExtensionUIResponse, RpcSlashCommand, ModelInfo, RpcSessionState, SessionStats, RpcCostUpdateEvent }
 
+/**
+ * All 7 reasoning levels supported by pi, ordered from least to most intensive.
+ * Defined here (not re-exported from @opengsd/contracts) so renderer code can
+ * use the type without a runtime contracts import.
+ */
+export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+/**
+ * Ordered array of all valid thinking levels — a runtime value, not just a type.
+ * Use this to render the picker and to cycle through levels with Ctrl+Shift+T.
+ */
+export const RPC_THINKING_LEVELS = [
+  'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max',
+] as const satisfies readonly ThinkingLevel[]
+
 export type SessionId = string
 
 /**
@@ -74,6 +89,13 @@ export interface GsdApi {
     provider: string,
     modelId: string,
   ): Promise<{ provider: string; id: string }>
+  /**
+   * Set the thinking level for a pi session.
+   * Optimistic callers should revert the local state on rejection.
+   * Returns `undefined` on success; throws if the session is unknown or pi
+   * returns an error (same call-site contract as setModel).
+   */
+  setThinkingLevel(sessionId: SessionId, level: ThinkingLevel): Promise<void>
   /**
    * Fetch the RPC session state (model info, thinking level, streaming status).
    * Returns `null` when the session is unknown or pi returns an error.

@@ -15,6 +15,7 @@ import type {
   MissingPathInfo,
   RpcSessionState,
   SessionStats,
+  ThinkingLevel,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -50,6 +51,11 @@ const IPC = {
    * Mirrored from main/ipc/handlers.ts IPC.GET_SESSION_STATS.
    */
   GET_SESSION_STATS: 'getSessionStats',
+  /**
+   * Set the thinking level for a pi session.
+   * Mirrored from main/ipc/handlers.ts IPC.SET_THINKING_LEVEL.
+   */
+  SET_THINKING_LEVEL: 'setThinkingLevel',
 } as const
 
 const PUSH = {
@@ -153,6 +159,9 @@ export function createGsdApi(): GsdApi {
 
     getSessionStats: (sessionId: SessionId): Promise<SessionStats | null> =>
       ipcRenderer.invoke(IPC.GET_SESSION_STATS, sessionId),
+
+    setThinkingLevel: (sessionId: SessionId, level: ThinkingLevel): Promise<void> =>
+      ipcRenderer.invoke(IPC.SET_THINKING_LEVEL, sessionId, level),
 
     // ── push subscriptions ─────────────────────────────────────────────────────
 

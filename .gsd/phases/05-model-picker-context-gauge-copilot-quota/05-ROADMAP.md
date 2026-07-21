@@ -15,7 +15,7 @@
 - [x] **S01: Session header: model chip and cost line** `risk:low` `depends:[]`
   > After this: Open a project; header shows 'anthropic/claude-sonnet-4.6  $0.00'. Send a message; cost updates after execution_complete.
 
-- [ ] **S02: Model picker dropdown** `risk:medium` `depends:[S01]`
+- [x] **S02: Model picker dropdown** `risk:medium` `depends:[S01]`
   > After this: Click 'anthropic/claude-sonnet-4.6'; dropdown shows all available models grouped by provider. Pick a different model; chip updates immediately.
 
 - [ ] **S03: Thinking level chip and picker** `risk:low` `depends:[S01]`

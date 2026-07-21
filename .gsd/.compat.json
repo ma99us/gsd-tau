@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-21T18:54:53.990Z",
+  "lastProjectedAt": "2026-07-21T19:08:28.605Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -645,7 +645,7 @@
       ]
     },
     "phases/05-model-picker-context-gauge-copilot-quota/05-ROADMAP.md": {
-      "sha": "2ea80e6cf4c7b417",
+      "sha": "45415c0a606f941b",
       "entities": [
         "M005"
       ]
@@ -662,6 +662,13 @@
       "entities": [
         "M005",
         "M005/S02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-03-PLAN.md": {
+      "sha": "eb5c8590b9ef421e",
+      "entities": [
+        "M005",
+        "M005/S03"
       ]
     }
   },
