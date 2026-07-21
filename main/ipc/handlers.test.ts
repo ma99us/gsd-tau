@@ -33,6 +33,7 @@ type IpcHandler = (event: null, ...args: unknown[]) => unknown
 class MockHandle extends EventEmitter {
   readonly sessionId: SessionId
   readonly sendUIResponse = vi.fn()
+  readonly setThinkingLevel = vi.fn().mockResolvedValue(undefined)
   constructor(id: SessionId = 's_test123abc') {
     super()
     this.sessionId = id
@@ -131,9 +132,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 17 IPC channels', () => {
+    it('registers handlers for all 18 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(17)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(18)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
@@ -152,6 +153,7 @@ describe('registerHandlers', () => {
       expect(capturedHandlers.has(IPC.SAVE_WINDOW_ACTIVE_TAB)).toBe(true)
       expect(capturedHandlers.has(IPC.GET_RPC_STATE)).toBe(true)
       expect(capturedHandlers.has(IPC.GET_SESSION_STATS)).toBe(true)
+      expect(capturedHandlers.has(IPC.SET_THINKING_LEVEL)).toBe(true)
     })
   })
 
@@ -383,7 +385,7 @@ describe('registerHandlers', () => {
   // ── cleanup ──────────────────────────────────────────────────────────────────
 
   describe('cleanup', () => {
-    it('removes all 17 ipcMain handlers', () => {
+    it('removes all 18 ipcMain handlers', () => {
       const ipcMock = ipcMain as unknown as IpcMock
       cleanup()
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SHOW_FOLDER_PICKER)
@@ -404,6 +406,7 @@ describe('registerHandlers', () => {
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SAVE_WINDOW_ACTIVE_TAB)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_RPC_STATE)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.GET_SESSION_STATS)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SET_THINKING_LEVEL)
     })
 
     it('stops event fan-out after cleanup', async () => {
@@ -970,6 +973,54 @@ describe('registerHandlers', () => {
         capturedHandlers.get(IPC.RENAME_SESSION)!(null, 's_no_such_session', 'Name'),
       ).not.toThrow()
       expect(manager.rename).toHaveBeenCalledWith('s_no_such_session', 'Name')
+    })
+  })
+
+  // ── setThinkingLevel ────────────────────────────────────────────────────────
+
+  describe('setThinkingLevel', () => {
+    beforeEach(async () => {
+      // Open a project so a session entry is registered in `sessions`.
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+    })
+
+    it('calls entry.setThinkingLevel with the given level', async () => {
+      await capturedHandlers.get(IPC.SET_THINKING_LEVEL)!(null, mockHandle.sessionId, 'high')
+      expect(mockHandle.setThinkingLevel).toHaveBeenCalledWith('high')
+    })
+
+    it('returns undefined on success', async () => {
+      const result = await capturedHandlers.get(IPC.SET_THINKING_LEVEL)!(
+        null,
+        mockHandle.sessionId,
+        'medium',
+      )
+      expect(result).toBeUndefined()
+    })
+
+    it('returns null for an unknown session', async () => {
+      const result = await capturedHandlers.get(IPC.SET_THINKING_LEVEL)!(
+        null,
+        's_unknown',
+        'high',
+      )
+      expect(result).toBeNull()
+    })
+
+    it('returns null and logs console.error when setThinkingLevel rejects', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      mockHandle.setThinkingLevel.mockRejectedValueOnce(new Error('RPC failure'))
+      const result = await capturedHandlers.get(IPC.SET_THINKING_LEVEL)!(
+        null,
+        mockHandle.sessionId,
+        'max',
+      )
+      expect(result).toBeNull()
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('setThinkingLevel'),
+        expect.any(Error),
+      )
+      spy.mockRestore()
     })
   })
 })

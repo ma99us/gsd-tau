@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-21T19:12:59.145Z",
+  "lastProjectedAt": "2026-07-21T19:26:59.682Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -665,7 +665,7 @@
       ]
     },
     "phases/05-model-picker-context-gauge-copilot-quota/05-03-PLAN.md": {
-      "sha": "a7b880920927318e",
+      "sha": "e87c668407d804b1",
       "entities": [
         "M005",
         "M005/S03"

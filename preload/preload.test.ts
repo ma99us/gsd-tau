@@ -176,6 +176,35 @@ describe('createGsdApi', () => {
     })
   })
 
+  // ── setThinkingLevel ──────────────────────────────────────────────────────────
+
+  describe('setThinkingLevel', () => {
+    it('invokes the setThinkingLevel channel with sessionId and level', async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      await api.setThinkingLevel(SESSION_ID, 'high')
+      expect(mockInvoke).toHaveBeenCalledWith('setThinkingLevel', SESSION_ID, 'high')
+    })
+
+    it('resolves to void on success', async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      await expect(api.setThinkingLevel(SESSION_ID, 'medium')).resolves.toBeUndefined()
+    })
+
+    it('resolves to null when the handler returns null (unknown session or error signal)', async () => {
+      // The main-process handler returns null on error; the preload passes it through.
+      mockInvoke.mockResolvedValue(null)
+      const result = await api.setThinkingLevel(SESSION_ID, 'high')
+      expect(result).toBeNull()
+    })
+
+    it('propagates IPC rejection to the caller', async () => {
+      mockInvoke.mockRejectedValue(new Error('IPC transport error'))
+      await expect(api.setThinkingLevel(SESSION_ID, 'max')).rejects.toThrow(
+        'IPC transport error',
+      )
+    })
+  })
+
   // ── onEvent ───────────────────────────────────────────────────────────────────
 
   describe('onEvent', () => {

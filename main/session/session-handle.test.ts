@@ -297,4 +297,56 @@ describe('SessionHandle', () => {
     await expect(handle.stop()).resolves.toBeUndefined()
     expect(handle.clientState).toBe('stopped')
   })
+
+  // ── setThinkingLevel ────────────────────────────────────────────────────────
+
+  describe('setThinkingLevel', () => {
+    it('delegates to client.setThinkingLevel with the given level', async () => {
+      const setThinkingLevelFn = vi.fn().mockResolvedValue(undefined)
+      const client = {
+        events: vi.fn().mockReturnValue((async function* () {})()),
+        stop: vi.fn().mockResolvedValue(undefined),
+        setThinkingLevel: setThinkingLevelFn,
+      } as unknown as RpcClient
+      const handle = new SessionHandle(client, SESSION)
+      await handle.setThinkingLevel('high')
+      expect(setThinkingLevelFn).toHaveBeenCalledWith('high')
+    })
+
+    it('resolves when client.setThinkingLevel resolves', async () => {
+      const client = {
+        events: vi.fn().mockReturnValue((async function* () {})()),
+        stop: vi.fn().mockResolvedValue(undefined),
+        setThinkingLevel: vi.fn().mockResolvedValue(undefined),
+      } as unknown as RpcClient
+      const handle = new SessionHandle(client, SESSION)
+      await expect(handle.setThinkingLevel('medium')).resolves.toBeUndefined()
+    })
+
+    it('propagates rejection from client.setThinkingLevel', async () => {
+      const client = {
+        events: vi.fn().mockReturnValue((async function* () {})()),
+        stop: vi.fn().mockResolvedValue(undefined),
+        setThinkingLevel: vi.fn().mockRejectedValue(new Error('RPC error')),
+      } as unknown as RpcClient
+      const handle = new SessionHandle(client, SESSION)
+      await expect(handle.setThinkingLevel('high')).rejects.toThrow('RPC error')
+    })
+
+    it('passes all 7 thinking levels through to the client unchanged', async () => {
+      const levels = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+      for (const level of levels) {
+        const fn = vi.fn().mockResolvedValue(undefined)
+        const client = {
+          events: vi.fn().mockReturnValue((async function* () {})()),
+          stop: vi.fn().mockResolvedValue(undefined),
+          setThinkingLevel: fn,
+        } as unknown as RpcClient
+        const handle = new SessionHandle(client, SESSION)
+        await handle.setThinkingLevel(level)
+        expect(fn).toHaveBeenCalledWith(level)
+        expect(fn).toHaveBeenCalledTimes(1)
+      }
+    })
+  })
 })

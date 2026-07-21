@@ -46,7 +46,7 @@ export interface SessionHeaderBarProps {
  * Four decimal places so fractional-cent costs (typical for LLM usage) are
  * visible even after a short prompt.
  */
-function formatCost(cost: number): string {
+export function formatCost(cost: number): string {
   return `$${cost.toFixed(4)}`
 }
 
