@@ -31,6 +31,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { SessionId, SessionEvent, RpcCostUpdateEvent, ModelInfo, ThinkingLevel } from '@shared/types'
 import { ModelPickerDropdown } from './ModelPickerDropdown'
 import { ThinkingLevelChip } from './ThinkingLevelChip'
+import { ContextGauge } from './ContextGauge'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export function formatCost(cost: number): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Element {
-  const [model, setModel] = useState<{ provider: string; id: string } | null>(null)
+  const [model, setModel] = useState<ModelInfo | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | null>(null)
   const [isReasoningModel, setIsReasoningModel] = useState(false)
   const [cost, setCost] = useState(0)
@@ -67,7 +68,7 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
   const handleModelSelected = useCallback(
     (m: ModelInfo): void => {
       const previous = model
-      setModel({ provider: m.provider, id: m.id })
+      setModel(m)
       window.gsd
         .setModel(sessionId, m.provider, m.id)
         .catch((err: unknown) => {
@@ -107,7 +108,7 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
       .getRpcState(sessionId)
       .then((state) => {
         if (state?.model) {
-          setModel({ provider: state.model.provider, id: state.model.id })
+          setModel(state.model)
           // Determine whether the chip should be shown — set before thinkingLevel
           // so both pieces of state are ready when the component re-renders.
           setIsReasoningModel(state.model.reasoning === true)
@@ -196,6 +197,14 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
       <span className="shrink-0 tabular-nums" title="Cumulative session cost (USD)">
         {formatCost(cost)}
       </span>
+
+      {/* Visual separator */}
+      <span className="select-none text-neutral-600" aria-hidden="true">
+        ·
+      </span>
+
+      {/* Context window gauge — shows fill percentage with colour coding */}
+      <ContextGauge sessionId={sessionId} contextWindow={model?.contextWindow} />
     </div>
   )
 }

@@ -20,6 +20,7 @@
 // from being loaded in the Node test environment.
 vi.mock('./ModelPickerDropdown', () => ({ ModelPickerDropdown: () => null }))
 vi.mock('./ThinkingLevelChip', () => ({ ThinkingLevelChip: () => null }))
+vi.mock('./ContextGauge', () => ({ ContextGauge: () => null }))
 
 import { describe, it, expect, vi } from 'vitest'
 import { RPC_THINKING_LEVELS } from '../../shared/types'
