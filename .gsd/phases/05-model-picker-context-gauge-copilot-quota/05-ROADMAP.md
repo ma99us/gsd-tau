@@ -21,7 +21,7 @@
 - [x] **S03: Thinking level chip and picker** `risk:low` `depends:[S01]`
   > After this: Header shows '💡 medium'. Click chip; picker shows all 7 levels with current selected. Pick 'high'; chip updates to '💡 high'. On a non-reasoning model chip is absent.
 
-- [ ] **S04: Context window gauge with compact button** `risk:medium` `depends:[S01]`
+- [x] **S04: Context window gauge with compact button** `risk:medium` `depends:[S01]`
   > After this: Header shows 'Context ██████░░░░ 62%'. Click gauge; popover shows input/output/cache breakdown and Compact button. At 85%+ gauge turns red.
 
 - [ ] **S05: Copilot quota service and header widget** `risk:high` `depends:[S01]`

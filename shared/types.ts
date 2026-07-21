@@ -156,6 +156,21 @@ export interface GsdApi {
    * Fire-and-forget — call from `setActiveTab` without awaiting.
    */
   saveWindowActiveTab(cwd: string): Promise<void>
+
+  // ---------------------------------------------------------------------------
+  // Copilot quota
+  // ---------------------------------------------------------------------------
+
+  /** Fetch the latest cached quota snapshot. Returns null when unauthenticated. */
+  getQuota(): Promise<QuotaSnapshot | null>
+  /** Subscribe to live quota snapshot pushes from the main-process poll loop. */
+  onQuotaUpdate(cb: (snapshot: QuotaSnapshot) => void): Unsubscribe
+  /** Trigger an immediate on-demand refresh. Returns the fresh snapshot. */
+  refreshQuota(): Promise<QuotaSnapshot | null>
+  /** Start the GitHub device-code auth flow for the quota service. */
+  startQuotaAuth(): Promise<void>
+  /** Disconnect the quota service GitHub account (delete gh-auth.json). */
+  disconnectQuotaAuth(): Promise<void>
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */
@@ -285,6 +300,83 @@ export interface RestoreResult {
    * Used by the renderer to restore the correct active tab after reboot.
    */
   activeTabCwd?: string
+}
+
+// ---------------------------------------------------------------------------
+// Copilot quota types
+// ---------------------------------------------------------------------------
+
+/**
+ * High-level verdict derived from the quota snapshot.
+ * Used to colour-code the header bar widget.
+ */
+export type QuotaVerdict = 'safe' | 'tight' | 'overage' | 'runout' | 'unknown'
+
+/**
+ * Burn-rate projections derived from rolling history.
+ * All numeric fields are null when there is insufficient history data.
+ */
+export interface QuotaProjection {
+  /** Average daily consumption computed from all available history. */
+  burnPerDay: number | null
+  /** Requests consumed in the last 24 h. */
+  burnLast24h: number | null
+  /** Requests consumed in the last 7 days. */
+  burnLast7d: number | null
+  /** Projected remaining at reset date, based on current burn rate. */
+  projectedAtReset: number | null
+  /** Suggested daily budget to stay within entitlement until reset. */
+  safeDailyBudget: number | null
+  /** Days elapsed since the quota reset date. */
+  daysElapsed: number | null
+  /** Days remaining until the quota resets. */
+  daysRemaining: number | null
+}
+
+/**
+ * Point-in-time snapshot of the Copilot quota, broadcast over IPC
+ * and cached by the renderer.
+ */
+export interface QuotaSnapshot {
+  /** ISO-8601 timestamp of when this snapshot was fetched. */
+  fetchedAt: string
+  /** GitHub account login (e.g. "ma99us"). Null when unauthenticated. */
+  login: string | null
+  /** Copilot plan name (e.g. "copilot_enterprise"). */
+  plan: string | null
+  /** Total premium interactions used this cycle. */
+  used: number | null
+  /** Premium interactions remaining this cycle. */
+  remaining: number | null
+  /** Total entitlement for this cycle. */
+  entitlement: number | null
+  /** Percentage of quota remaining (0–100). Null when entitlement is unknown. */
+  percentRemaining: number | null
+  /** True when the account is permitted to go into overage. */
+  overagePermitted: boolean
+  /** ISO-8601 date when the quota resets. */
+  resetDateUtc: string | null
+  /** Colour-coded verdict for the header bar. */
+  verdict: QuotaVerdict
+  /** Burn-rate projections; null when insufficient history. */
+  projection: QuotaProjection | null
+  /**
+   * True when the last fetch returned stale/cached values due to a network
+   * error or being offline.  The widget shows a stale indicator.
+   */
+  stale: boolean
+}
+
+/**
+ * Single history entry persisted to quota-history.json.
+ * Used to compute burn rates and projections.
+ */
+export interface QuotaHistoryEntry {
+  /** ISO-8601 timestamp of the fetch that produced this entry. */
+  ts: string
+  used: number
+  remaining: number
+  entitlement: number
 }
 
 /**
