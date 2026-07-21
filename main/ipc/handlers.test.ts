@@ -69,6 +69,10 @@ describe('registerHandlers', () => {
     resume: ReturnType<typeof vi.fn>
     getHistorySessionFile: ReturnType<typeof vi.fn>
     updateSessionFile: ReturnType<typeof vi.fn>
+    getRpcState: ReturnType<typeof vi.fn>
+    getSessionStats: ReturnType<typeof vi.fn>
+    listMissingPaths: ReturnType<typeof vi.fn>
+    removeMissingPath: ReturnType<typeof vi.fn>
   }
   let cleanup: () => void
 

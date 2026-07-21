@@ -19,6 +19,9 @@ import { SessionView } from './SessionView'
 import type { SessionViewProps } from './SessionView'
 import { SessionHeaderBar } from './SessionHeaderBar'
 import type { SessionHeaderBarProps } from './SessionHeaderBar'
+import { ModelPickerDropdown } from './ModelPickerDropdown'
+import type { ModelPickerDropdownProps } from './ModelPickerDropdown'
+import type { ModelInfo } from '@shared/types'
 
 // ── Interface contract ────────────────────────────────────────────────────────
 
@@ -128,6 +131,53 @@ describe('SessionHeaderBarProps', () => {
   it('sessionId: accepts a UUID-shaped string', () => {
     const props: SessionHeaderBarProps = { sessionId: '550e8400-e29b-41d4-a716-446655440000' }
     expect(typeof props.sessionId).toBe('string')
+  })
+})
+
+// ── ModelPickerDropdown regression ──────────────────────────────────────────
+// Guard that ModelPickerDropdown and its helpers are exported from their module
+// and that the prop contract is compatible with what SessionHeaderBar passes.
+
+describe('ModelPickerDropdown — export guard', () => {
+  it('is a function (React component)', () => {
+    expect(typeof ModelPickerDropdown).toBe('function')
+  })
+
+  it('has the expected component name', () => {
+    expect(ModelPickerDropdown.name).toBe('ModelPickerDropdown')
+  })
+})
+
+describe('ModelPickerDropdownProps', () => {
+  it('accepts a null currentModel (loading state)', () => {
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: () => undefined,
+    }
+    expect(props.currentModel).toBeNull()
+  })
+
+  it('accepts a populated currentModel', () => {
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: { provider: 'anthropic', id: 'claude-sonnet-4.6' },
+      onModelSelected: () => undefined,
+    }
+    expect(props.currentModel?.provider).toBe('anthropic')
+  })
+
+  it('onModelSelected receives a ModelInfo value', () => {
+    const received: ModelInfo[] = []
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: (m) => received.push(m),
+    }
+    const fakeModel = { provider: 'openai', id: 'gpt-4o' } as ModelInfo
+    props.onModelSelected(fakeModel)
+    expect(received).toHaveLength(1)
+    expect(received[0]).toBe(fakeModel)
   })
 })
 
