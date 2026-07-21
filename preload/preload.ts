@@ -11,6 +11,7 @@ import type {
   RpcSlashCommand,
   ModelInfo,
   SessionRecord,
+  RestoreResult,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -36,6 +37,11 @@ const PUSH = {
   SESSION_STATE_CHANGE: 'session:state-change',
   SESSION_UI_REQUEST_ADDED: 'session:ui-request-added',
   SESSION_UI_REQUEST_REMOVED: 'session:ui-request-removed',
+  /**
+   * Emitted once on startup after all registry sessions have been
+   * restored (or attempted).  Payload: {@link RestoreResult}.
+   */
+  RESTORE_COMPLETE: 'session:restore-complete',
 } as const
 
 // ── GSD API factory ────────────────────────────────────────────────────────────
@@ -197,6 +203,24 @@ export function createGsdApi(): GsdApi {
       ipcRenderer.on(PUSH.SESSION_UI_REQUEST_REMOVED, listener)
       return (): void => {
         ipcRenderer.off(PUSH.SESSION_UI_REQUEST_REMOVED, listener)
+      }
+    },
+
+    /**
+     * Subscribe to the global `session:restore-complete` push.
+     * Fires once on startup after all registry sessions have been restored.
+     *
+     * @returns An unsubscribe function.  Calling it multiple times is safe.
+     */
+    onRestoreComplete: (
+      cb: (result: RestoreResult) => void,
+    ): Unsubscribe => {
+      const listener = (_ev: IpcRendererEvent, result: RestoreResult): void => {
+        cb(result)
+      }
+      ipcRenderer.on(PUSH.RESTORE_COMPLETE, listener)
+      return (): void => {
+        ipcRenderer.off(PUSH.RESTORE_COMPLETE, listener)
       }
     },
   }

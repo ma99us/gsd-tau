@@ -73,6 +73,8 @@ export interface GsdApi {
     sessionId: SessionId,
     cb: (requestId: string) => void,
   ): Unsubscribe
+  /** Subscribe to the one-time `session:restore-complete` push fired after relaunch restore. */
+  onRestoreComplete(cb: (result: RestoreResult) => void): Unsubscribe
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */
@@ -175,6 +177,17 @@ export interface WindowRecord {
   activeTabId: string
   /** Last-known window geometry for restore. */
   bounds: { x: number; y: number; width: number; height: number }
+}
+
+/**
+ * Payload emitted once on startup after all registry sessions have been
+ * restored (or attempted).  Mirrors the `RestoreResult` type used in main.
+ */
+export interface RestoreResult {
+  /** Session ids that were successfully restored. */
+  succeeded: SessionId[]
+  /** Session ids that failed to restore. */
+  failed: SessionId[]
 }
 
 /**
