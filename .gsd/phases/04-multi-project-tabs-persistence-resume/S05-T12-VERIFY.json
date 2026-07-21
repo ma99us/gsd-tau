@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T12",
+  "unitId": "M004/S05/T12",
+  "timestamp": 1784648563130,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm test:e2e -- reboot-cycle passes 5 consecutive cycles. Registry file intact and uncorrupted after each cycle.",
+      "exitCode": 1,
+      "durationMs": 92801,
+      "verdict": "fail"
+    }
+  ]
+}

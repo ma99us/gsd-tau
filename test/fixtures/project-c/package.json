@@ -1,0 +1,5 @@
+{
+  "name": "project-c",
+  "version": "1.0.0",
+  "description": "Fixture project C for gsd-tau reboot-cycle e2e tests"
+}
