@@ -32,6 +32,7 @@ import type { SessionId, SessionEvent, RpcCostUpdateEvent, ModelInfo, ThinkingLe
 import { ModelPickerDropdown } from './ModelPickerDropdown'
 import { ThinkingLevelChip } from './ThinkingLevelChip'
 import { ContextGauge } from './ContextGauge'
+import { QuotaWidget } from './QuotaWidget'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -205,6 +206,14 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
 
       {/* Context window gauge — shows fill percentage with colour coding */}
       <ContextGauge sessionId={sessionId} contextWindow={model?.contextWindow} />
+
+      {/* Visual separator */}
+      <span className="select-none text-neutral-600" aria-hidden="true">
+        ·
+      </span>
+
+      {/* Copilot quota widget — account-wide, no sessionId needed */}
+      <QuotaWidget />
     </div>
   )
 }

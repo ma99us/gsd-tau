@@ -21,6 +21,7 @@
     "@opengsd/rpc-client": "^1.11.0",
     "@radix-ui/react-dialog": "^1.1.0",
     "@radix-ui/react-dropdown-menu": "^2.1.0",
+    "@radix-ui/react-popover": "^1.1.20",
     "class-variance-authority": "^0.7.1",
     "electron": "^31.0.0",
     "electron-log": "^5.4.4",

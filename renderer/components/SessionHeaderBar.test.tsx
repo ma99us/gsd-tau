@@ -21,6 +21,7 @@
 vi.mock('./ModelPickerDropdown', () => ({ ModelPickerDropdown: () => null }))
 vi.mock('./ThinkingLevelChip', () => ({ ThinkingLevelChip: () => null }))
 vi.mock('./ContextGauge', () => ({ ContextGauge: () => null }))
+vi.mock('./QuotaWidget', () => ({ QuotaWidget: () => null }))
 
 import { describe, it, expect, vi } from 'vitest'
 import { RPC_THINKING_LEVELS } from '../../shared/types'
