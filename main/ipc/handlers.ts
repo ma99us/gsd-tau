@@ -33,6 +33,11 @@ export const PUSH = {
   SESSION_STATE_CHANGE: 'session:state-change',
   SESSION_UI_REQUEST_ADDED: 'session:ui-request-added',
   SESSION_UI_REQUEST_REMOVED: 'session:ui-request-removed',
+  /**
+   * Emitted once on startup after all registry sessions have been
+   * restored (or attempted).  Payload: {@link RestoreResult}.
+   */
+  RESTORE_COMPLETE: 'session:restore-complete',
 } as const
 
 // ── Types ──────────────────────────────────────────────────────────────────────

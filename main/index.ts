@@ -5,17 +5,24 @@ import { app, BrowserWindow } from 'electron'
 import { join, dirname } from 'path'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { SessionManager } from './session/session-manager'
-import { registerHandlers } from './ipc/handlers'
+import { RegistryStore } from './persistence/registry-store'
+import { registerHandlers, PUSH } from './ipc/handlers'
 import { showBlockerToast } from './os/notifications'
 import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
 
 // ── SessionManager singleton ───────────────────────────────────────────────────
 
 /**
+ * Registry persistence store — owns load/save of `%APPDATA%\gsd-tau\registry.json`.
+ * Created at module level so SessionManager can reference it at construction time.
+ */
+const registryStore = new RegistryStore()
+
+/**
  * Single-instance SessionManager for the main process.
  * Exported so IPC handlers (added in later phases) can share this instance.
  */
-export const sessionManager = new SessionManager()
+export const sessionManager = new SessionManager({ registryStore })
 
 // ── Shutdown guard ─────────────────────────────────────────────────────────────
 
@@ -47,6 +54,11 @@ app.on('before-quit', (event) => {
   if (_quitting) return // second pass — sessions already closed, allow quit
   event.preventDefault()
   _quitting = true
+
+  // Flush pending registry writes immediately — before closing sessions — so
+  // the current state (sessions still open, wasAutoRunning flags) reaches disk
+  // even when the debounce window has not yet elapsed.
+  registryStore.flush()
 
   const ids = sessionManager.activeSessions
   const shutdownStart = Date.now()
@@ -205,14 +217,41 @@ function logStartupDiagnostics(): void {
   console.log(`[startup] ──────────────────────────────────────────────────────`)
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   app.setAppUserModelId('io.opengsd.gsd-tau')
   logStartupDiagnostics()
+
+  // Load the persisted registry synchronously before opening the main window.
+  // load() never throws — falls back to registry.json.bak then an empty default.
+  const registry = registryStore.load()
+  console.log(`[startup] registry loaded: ${registry.sessions.length} session(s)`)
+
   const cleanupHandlers = registerHandlers(sessionManager, undefined, showBlockerToast)
   // Remove IPC handlers when the app fully quits so Electron does not warn
   // about lingering handlers after the main process tears down.
   app.once('will-quit', () => cleanupHandlers())
   createMainWindow()
+
+  // Restore sessions from the registry in parallel.  All opens are attempted
+  // regardless of individual failures.  The restore-complete push event is
+  // emitted to all webContents once every attempt has settled so the renderer
+  // can hydrate its session list.
+  try {
+    const restoreResult = await sessionManager.restore(registry.sessions)
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send(PUSH.RESTORE_COMPLETE, restoreResult)
+      }
+    }
+    console.log(
+      `[startup] restore-complete fanned out: ${
+        restoreResult.restored.length
+      } restored, ${restoreResult.failed.length} failed`,
+    )
+  } catch (err) {
+    // restore() itself never throws (failures go to failed[]), but guard anyway.
+    console.error('[startup] unexpected error during session restore:', err)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

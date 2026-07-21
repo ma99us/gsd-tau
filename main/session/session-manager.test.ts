@@ -3,7 +3,7 @@ import type { RpcClient, SdkAgentEvent } from '@opengsd/rpc-client'
 import { SessionManager } from './session-manager'
 import type { RegistryStoreLike } from './session-manager'
 import { SessionHandle } from './session-handle'
-import type { RegistryV1 } from '../../shared/types'
+import type { RegistryV1, SessionRecord } from '../../shared/types'
 
 // ── mock helpers ──────────────────────────────────────────────────────────────
 
@@ -43,6 +43,7 @@ function makeMockClient(opts?: { shutdownDelay?: number }): RpcClient {
     init: vi.fn().mockResolvedValue({ protocolVersion: 2, sessionId: 'pi-sid-1', capabilities: { events: [], commands: [] } }),
     events,
     shutdown: shutdownFn,
+    switchSession: vi.fn().mockResolvedValue(undefined),
   } as unknown as RpcClient
 }
 
@@ -605,6 +606,124 @@ describe('SessionManager', () => {
 
       await mgr2.close(h2.sessionId)
       expect(mgr2.activeSessions).toHaveLength(0)
+    })
+  })
+
+  // ── restore() ──────────────────────────────────────────────────────────────
+
+  describe('restore()', () => {
+    /** Build a minimal SessionRecord fixture. */
+    function makeRecord(overrides?: Partial<SessionRecord>): SessionRecord {
+      return {
+        id: 's_fixture',
+        cwd: '/proj/restored',
+        displayName: 'restored',
+        lastOpenedAt: new Date().toISOString(),
+        wasAutoRunning: false,
+        ...overrides,
+      }
+    }
+
+    it('resolves with empty arrays when called with no records', async () => {
+      const result = await mgr.restore([])
+      expect(result.restored).toHaveLength(0)
+      expect(result.failed).toHaveLength(0)
+    })
+
+    it('restored session appears in list()', async () => {
+      const result = await mgr.restore([makeRecord({ cwd: '/proj/alpha' })])
+      expect(result.restored).toHaveLength(1)
+      expect(result.failed).toHaveLength(0)
+      expect(mgr.list()).toHaveLength(1)
+      expect(mgr.list()[0]!.cwd).toBe('/proj/alpha')
+
+      await mgr.close(result.restored[0]!)
+    })
+
+    it('both records appear in list() after restoring 2 sessions', async () => {
+      const multiFactory = makeMultiFactory()
+      const mgr2 = new SessionManager({ createClient: multiFactory })
+
+      const result = await mgr2.restore([
+        makeRecord({ cwd: '/proj/a' }),
+        makeRecord({ cwd: '/proj/b' }),
+      ])
+
+      expect(result.restored).toHaveLength(2)
+      expect(mgr2.list()).toHaveLength(2)
+
+      for (const id of result.restored) await mgr2.close(id)
+    })
+
+    it('switchSession is called when sessionFile is present', async () => {
+      // Use a dedicated client so we can spy on switchSession directly.
+      const switchClient = makeMockClient()
+      const switchFactory = makeFactory(switchClient)
+      const mgr2 = new SessionManager({ createClient: switchFactory })
+
+      const result = await mgr2.restore([
+        makeRecord({ cwd: '/proj/b', sessionFile: '/path/to/session.jsonl' }),
+      ])
+
+      expect(
+        (switchClient as unknown as { switchSession: ReturnType<typeof vi.fn> }).switchSession,
+      ).toHaveBeenCalledWith({ sessionPath: '/path/to/session.jsonl' })
+
+      await mgr2.close(result.restored[0]!)
+    })
+
+    it('switchSession is NOT called when sessionFile is absent', async () => {
+      const noSwitchClient = makeMockClient()
+      const mgr2 = new SessionManager({ createClient: makeFactory(noSwitchClient) })
+
+      const result = await mgr2.restore([makeRecord({ cwd: '/proj/c' })])
+
+      expect(
+        (noSwitchClient as unknown as { switchSession: ReturnType<typeof vi.fn> }).switchSession,
+      ).not.toHaveBeenCalled()
+
+      await mgr2.close(result.restored[0]!)
+    })
+
+    it('factory failure is captured in failed[] without blocking other records', async () => {
+      const goodClient = makeMockClient()
+      // First call fails; second succeeds
+      const failOnFirst = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('spawn fail'))
+        .mockResolvedValue(goodClient)
+      const mgr2 = new SessionManager({ createClient: failOnFirst })
+
+      const result = await mgr2.restore([
+        makeRecord({ cwd: '/proj/fail' }),
+        makeRecord({ cwd: '/proj/ok' }),
+      ])
+
+      expect(result.failed).toHaveLength(1)
+      expect(result.failed[0]!.record.cwd).toBe('/proj/fail')
+      expect(result.restored).toHaveLength(1)
+      expect(mgr2.list()).toHaveLength(1)
+
+      await mgr2.close(result.restored[0]!)
+    })
+
+    it('switchSession failure is non-fatal — session still in restored[]', async () => {
+      const failSwitchClient = makeMockClient()
+      ;(failSwitchClient as unknown as { switchSession: ReturnType<typeof vi.fn> })
+        .switchSession.mockRejectedValueOnce(new Error('switch failed'))
+
+      const mgr2 = new SessionManager({ createClient: makeFactory(failSwitchClient) })
+
+      const result = await mgr2.restore([
+        makeRecord({ cwd: '/proj/x', sessionFile: '/path/to/session.jsonl' }),
+      ])
+
+      // Session is still open and in restored[] even though switchSession threw
+      expect(result.restored).toHaveLength(1)
+      expect(result.failed).toHaveLength(0)
+      expect(mgr2.list()).toHaveLength(1)
+
+      await mgr2.close(result.restored[0]!)
     })
   })
 

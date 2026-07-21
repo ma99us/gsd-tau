@@ -27,6 +27,19 @@ export interface RegistryStoreLike {
   save(registry: RegistryV1): void
 }
 
+/**
+ * Result of a {@link SessionManager.restore} call.
+ * Every record either produces a restored session id or a failure entry.
+ * Failures are captured rather than thrown so the remaining records still
+ * attempt to open.
+ */
+export interface RestoreResult {
+  /** Stable IDs of sessions that were successfully opened. */
+  restored: SessionId[]
+  /** Records that failed to open, along with the causal error. */
+  failed: Array<{ record: SessionRecord; error: unknown }>
+}
+
 interface ActiveSession {
   handle: SessionHandle
   client: RpcClient
@@ -35,6 +48,8 @@ interface ActiveSession {
   wasAutoRunning: boolean
   lastOpenedAt: string
   sessionFile?: string
+  /** True when this session was reopened from the registry on relaunch. */
+  isRestored?: boolean
   /**
    * Optional hook called immediately before close() stops the event pump.
    * Registered by the IPC layer to cancel open UI-request blockers so pi
@@ -145,6 +160,75 @@ export class SessionManager {
     this._scheduleRegistrySave()
 
     return handle
+  }
+
+  /**
+   * Restore sessions from a persisted registry snapshot.
+   *
+   * For each record:
+   * - Opens a new pi session at the record's `cwd`.
+   * - If the record has a `sessionFile`, calls `client.switchSession()` so pi
+   *   attaches to the previous conversation file.
+   * - Marks the internal `ActiveSession` entry as `isRestored = true`.
+   *
+   * All opens are attempted in parallel; per-record failures are captured in
+   * `RestoreResult.failed` rather than thrown, so other records still restore.
+   * A `switchSession` failure is non-fatal: the session is live (just not at
+   * the previous conversation) and is still added to `RestoreResult.restored`.
+   *
+   * @param records  Session records from {@link RegistryStore.load()}.  An
+   *                 empty array resolves immediately with empty result arrays.
+   */
+  async restore(records: SessionRecord[]): Promise<RestoreResult> {
+    const restored: SessionId[] = []
+    const failed: Array<{ record: SessionRecord; error: unknown }> = []
+
+    console.log(`[SessionManager] restoring ${records.length} session(s) from registry`)
+
+    await Promise.all(
+      records.map(async (record) => {
+        try {
+          const handle = await this.open(record.cwd)
+          const entry = this._sessions.get(handle.sessionId)
+          if (entry) {
+            entry.isRestored = true
+            if (record.sessionFile) {
+              try {
+                // switchSession is part of the stable RPC contract (switch_session
+                // in RPC_COMMAND_TYPES) but not in the local mock surface — cast.
+                await (entry.client as unknown as {
+                  switchSession(opts: { sessionPath: string }): Promise<void>
+                }).switchSession({ sessionPath: record.sessionFile })
+                console.log(
+                  `[SessionManager] switch_session ok for session ${
+                    handle.sessionId
+                  } → "${record.sessionFile}"`,
+                )
+              } catch (switchErr) {
+                console.warn(
+                  `[SessionManager] switch_session failed for session ${
+                    handle.sessionId
+                  } (file: "${record.sessionFile}"):`,
+                  switchErr,
+                )
+                // Non-fatal: session is live; conversation may be at a fresh start.
+              }
+            }
+          }
+          restored.push(handle.sessionId)
+        } catch (err) {
+          console.error(`[SessionManager] restore failed for "${record.cwd}":`, err)
+          failed.push({ record, error: err })
+        }
+      }),
+    )
+
+    console.log(
+      `[SessionManager] restore complete: ${restored.length} restored, ${
+        failed.length
+      } failed`,
+    )
+    return { restored, failed }
   }
 
   /**
