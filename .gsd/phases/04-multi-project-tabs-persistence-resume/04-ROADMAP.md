@@ -18,7 +18,7 @@
 - [x] **S02: Multi-session SessionManager and Registry Integration** `risk:high` `depends:[S01]`
   > After this: Three sessions open simultaneously; registry reflects all three; registry survives app kill.
 
-- [ ] **S03: Single-instance Lock, IPC Upgrade, Zustand Store** `risk:low` `depends:[S02]`
+- [x] **S03: Single-instance Lock, IPC Upgrade, Zustand Store** `risk:low` `depends:[S02]`
   > After this: Second app instance with --open-project opens a new tab in the first and exits.
 
 - [ ] **S04: Tab Bar and Open Project Flyout** `risk:low` `depends:[S03]`

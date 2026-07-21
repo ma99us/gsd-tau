@@ -22,6 +22,7 @@ import { InputModal } from './components/modals/InputModal'
 import { EditorModal } from './components/modals/EditorModal'
 import { FallbackModal } from './components/modals/FallbackModal'
 import type { StatusBarState } from './components/StatusBar'
+import { TabBar } from './components/TabBar'
 import type { ToastEntry } from './components/InlineToast'
 import type { ModalQueue } from './state/modal-queue'
 import type { SessionState, RpcExtensionUIRequest, UiResponseInput } from '../shared/types'
@@ -69,6 +70,8 @@ function App(): JSX.Element {
   const [toasts, setToasts] = useState<ToastEntry[]>([])
   // ── Modal queue — blocking requests (select/confirm/input/editor/unknown) ──
   const [modalQueue, setModalQueue] = useState<ModalQueue>([])
+  // Tab display name — editable via tab rename; synced to cwd on project open.
+  const [displayName, setDisplayName] = useState(() => projectName(cwd ?? ''))
   /**
    * Buffered set_editor_text value — T09's EditorModal reads this ref on open
    * and clears it after consuming the prefill value.
@@ -81,6 +84,11 @@ function App(): JSX.Element {
     window.addEventListener('focus', sync)
     return () => window.removeEventListener('focus', sync)
   }, [])
+
+  // Sync display name when a new project is opened (cwd changes).
+  useEffect(() => {
+    if (cwd) setDisplayName(projectName(cwd))
+  }, [cwd])
 
   // ── Non-modal UI-request subscription ─────────────────────────────────────
   useEffect(() => {
@@ -284,6 +292,29 @@ function App(): JSX.Element {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-neutral-900">
+      {/* Tab bar — single-session scaffold; T09 expands to multi-tab */}
+      <TabBar
+        tabs={[{
+          id: sessionId ?? 'current',
+          displayName,
+          state: sessionState,
+          blockerCount: modalQueue.length,
+        }]}
+        activeId={sessionId}
+        onSelect={() => { /* single-tab: no-op */ }}
+        onClose={() => {
+          // T09 implements full close via sessions-store closeTab action.
+          // Pre-T09: confirm on Working then abort; no way to return to landing yet.
+          if (sessionState === 'Working') {
+            const ok = window.confirm('A task is in progress. Close tab anyway?')
+            if (!ok) return
+            void abort()
+          }
+        }}
+        onReorder={() => { /* single-tab: no-op */ }}
+        onNewTab={() => { void handleBrowse() }}
+        onRename={(_, name) => { setDisplayName(name) }}
+      />
       {/* Header */}
       <header className="flex shrink-0 items-center justify-between border-b border-neutral-700 px-4 py-2">
         <span
