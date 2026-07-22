@@ -2,9 +2,11 @@ import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } fr
 import type { WebContents } from 'electron'
 import { basename } from 'node:path'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot } from '../../shared/types'
+import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot, GsdProgress } from '../../shared/types'
 import type { QuotaService } from '../services/quota-service'
 import { BlockerTracker } from '../session/blocker-tracker'
+import { ProgressTracker } from '../session/progress-tracker'
+import { reconcileProgress } from '../session/progress-reconciler'
 import { SessionStateMachine } from '../session/state-machine'
 import type {
   SessionState,
@@ -70,6 +72,21 @@ export const IPC = {
   COMPACT: 'compact',
 
   // ---------------------------------------------------------------------------
+  // Auto-run progress
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Return the current GsdProgress snapshot for a session.
+   * Returns null when the session is unknown or no milestone has been planned yet.
+   */
+  GET_PROGRESS: 'getProgress',
+  /**
+   * Trigger an immediate Path B reconciliation against ROADMAP.md and return
+   * the refreshed GsdProgress snapshot.  Returns null on unknown session.
+   */
+  REFRESH_PROGRESS: 'refreshProgress',
+
+  // ---------------------------------------------------------------------------
   // Copilot quota
   // ---------------------------------------------------------------------------
 
@@ -104,6 +121,11 @@ export const PUSH = {
    * blocking overlay while the main process shuts down all sessions.
    */
   APP_CLOSING: 'app:closing',
+  /**
+   * Emitted whenever ProgressTracker.snapshot() changes for a session.
+   * Payload: { sessionId: SessionId; progress: GsdProgress }.
+   */
+  PROGRESS_UPDATE: 'session:progress-update',
   /**
    * Broadcast whenever a fresh QuotaSnapshot is available.
    * Value matches QUOTA_UPDATE_CHANNEL exported from quota-service.ts.
@@ -143,6 +165,10 @@ export type ShowBlockerToastFn = (sessionName: string, method: string) => void
 interface SessionEntry {
   machine: SessionStateMachine
   tracker: BlockerTracker
+  /** Tracks GsdProgress for the auto-run panel (Path A + Path B reconciliation). */
+  progressTracker: ProgressTracker
+  /** Absolute path to the project directory — used for Path B ROADMAP.md reads. */
+  cwd: string
   /** Forward a UI response to pi for the given request id. */
   sendUIResponse: (id: string, response: UiResponseInput) => void
   /** Set the thinking level for this session; rejects on RPC error. */
@@ -335,6 +361,7 @@ export function registerHandlers(
 
       const machine = new SessionStateMachine()
       const tracker = new BlockerTracker()
+      const progressTracker = new ProgressTracker()
 
       // ── Wire tracker → state machine (inline) ────────────────────────────────
       // Inline rather than via handle.wireBlockerTracker so the handler owns the
@@ -391,6 +418,21 @@ export function registerHandlers(
           }
         }
 
+        // Forward tool_use events to ProgressTracker (Path A — live tracking).
+        if (ev.type === 'tool_use') {
+          const toolEv = ev as { type: string; toolName?: string; toolInput?: unknown }
+          if (toolEv.toolName) {
+            progressTracker.handleToolUse(toolEv.toolName, toolEv.toolInput)
+          }
+        }
+        // Forward cost_update events to ProgressTracker.
+        if (ev.type === 'cost_update') {
+          const costEv = ev as { type: string; totalCostUsd?: number }
+          if (typeof costEv.totalCostUsd === 'number') {
+            progressTracker.handleCostUpdate(costEv.totalCostUsd)
+          }
+        }
+
         // extension_ui_request handling.
         //
         // Interactive methods (select, confirm, input, editor) are added to the
@@ -425,6 +467,31 @@ export function registerHandlers(
           } else {
             console.warn(`[handlers] execution_complete: no stats.sessionFile in payload for session ${id}`)
           }
+          // Path B: reconcile slice statuses from ROADMAP.md checkboxes.
+          const milestoneId = progressTracker.snapshot().milestone?.id
+          if (milestoneId) {
+            console.log(
+              `[handlers] execution_complete: triggering Path B reconciliation for session ${id}, milestone ${milestoneId}`,
+            )
+            void reconcileProgress(cwd, milestoneId).then((result) => {
+              if (result.hasData) {
+                progressTracker.applyReconciliation(result.sliceStatuses)
+                console.log(
+                  `[handlers] Path B: reconciled ${result.sliceStatuses.size} slice(s) for milestone ${milestoneId}`,
+                )
+              } else {
+                console.log(
+                  `[handlers] Path B: no data from ROADMAP.md for milestone ${milestoneId}, keeping Path A data`,
+                )
+              }
+            }).catch((err) => {
+              console.warn(`[handlers] Path B reconciliation error for session ${id}:`, err)
+            })
+          } else {
+            console.warn(
+              `[handlers] execution_complete: no milestone id for session ${id}, skipping Path B reconciliation`,
+            )
+          }
         }
 
         fanOut(getWc, PUSH.SESSION_EVENT, { sessionId: id, event: ev })
@@ -447,6 +514,14 @@ export function registerHandlers(
         })
       }
 
+      const onProgressUpdated = (progress: GsdProgress): void => {
+        console.log(
+          `[handlers] progress update for session ${id}: milestone=${progress.milestone?.id ?? 'none'}`,
+        )
+        fanOut(getWc, PUSH.PROGRESS_UPDATE, { sessionId: id, progress })
+      }
+      progressTracker.on('updated', onProgressUpdated)
+
       handle.on('event', onEvent)
       handle.on('transport-error', onTransportError)
       machine.on('state-changed', onStateChange)
@@ -454,6 +529,8 @@ export function registerHandlers(
       sessions.set(id, {
         machine,
         tracker,
+        progressTracker,
+        cwd,
         sendUIResponse: (respId, resp) => handle.sendUIResponse(respId, resp),
         setThinkingLevel: (level) => handle.setThinkingLevel(level),
         cleanup: () => {
@@ -465,6 +542,7 @@ export function registerHandlers(
           tracker.off('ui-request-added', onBlockerAddedFanOut)
           tracker.off('ui-request-removed', onBlockerRemovedFanOut)
           machine.destroy()
+          progressTracker.removeAllListeners()
         },
       })
 
@@ -748,6 +826,50 @@ export function registerHandlers(
     },
   )
 
+  // ── getProgress ────────────────────────────────────────────────────────────────
+  //
+  // Returns the current GsdProgress snapshot for a session (null when unknown
+  // or no milestone has been planned).  Synchronous — no RPC round-trip.
+  ipcMain.handle(
+    IPC.GET_PROGRESS,
+    (_event, sessionId: SessionId): GsdProgress | null => {
+      const entry = sessions.get(sessionId)
+      if (!entry) return null
+      return entry.progressTracker.snapshot()
+    },
+  )
+
+  // ── refreshProgress ───────────────────────────────────────────────────────────
+  //
+  // Triggers an immediate Path B reconciliation against ROADMAP.md and returns
+  // the refreshed snapshot.  The null-on-error pattern is consistent with other
+  // session handlers (getRpcState, getSessionStats) that may race with session
+  // close.
+  ipcMain.handle(
+    IPC.REFRESH_PROGRESS,
+    async (_event, sessionId: SessionId): Promise<GsdProgress | null> => {
+      const entry = sessions.get(sessionId)
+      if (!entry) return null
+      const milestoneId = entry.progressTracker.snapshot().milestone?.id
+      if (!milestoneId) {
+        console.warn(`[handlers] refreshProgress: no milestone id for session ${sessionId}`)
+        return entry.progressTracker.snapshot()
+      }
+      try {
+        const result = await reconcileProgress(entry.cwd, milestoneId)
+        if (result.hasData) {
+          entry.progressTracker.applyReconciliation(result.sliceStatuses)
+          console.log(
+            `[handlers] refreshProgress: reconciled ${result.sliceStatuses.size} slice(s) for milestone ${milestoneId}`,
+          )
+        }
+      } catch (err) {
+        console.warn(`[handlers] refreshProgress error for session ${sessionId}:`, err)
+      }
+      return entry.progressTracker.snapshot()
+    },
+  )
+
   // ── getQuota ──────────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.GET_QUOTA, (): QuotaSnapshot | null => {
     return quotaService?.getLastSnapshot() ?? null
@@ -798,6 +920,8 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.GET_SESSION_STATS)
     ipcMain.removeHandler(IPC.SET_THINKING_LEVEL)
     ipcMain.removeHandler(IPC.COMPACT)
+    ipcMain.removeHandler(IPC.GET_PROGRESS)
+    ipcMain.removeHandler(IPC.REFRESH_PROGRESS)
     ipcMain.removeHandler(IPC.GET_QUOTA)
     ipcMain.removeHandler(IPC.REFRESH_QUOTA)
     ipcMain.removeHandler(IPC.START_QUOTA_AUTH)

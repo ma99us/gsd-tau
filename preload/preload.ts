@@ -18,6 +18,7 @@ import type {
   ThinkingLevel,
   CompactionResult,
   QuotaSnapshot,
+  GsdProgress,
 } from '../shared/types'
 
 // ── IPC channel constants ─────────────────────────────────────────────────────
@@ -64,6 +65,10 @@ const IPC = {
    */
   COMPACT: 'compact',
 
+  // Auto-run progress
+  GET_PROGRESS: 'getProgress',
+  REFRESH_PROGRESS: 'refreshProgress',
+
   // Copilot quota
   GET_QUOTA: 'getQuota',
   REFRESH_QUOTA: 'refreshQuota',
@@ -88,6 +93,11 @@ const PUSH = {
   MISSING_PATH: 'session:missing-path',
   /** Emitted when the user closes the window; renderer shows a blocking overlay. */
   APP_CLOSING: 'app:closing',
+  /**
+   * Emitted whenever ProgressTracker.snapshot() changes for a session.
+   * Mirrors PUSH.PROGRESS_UPDATE from main/ipc/handlers.ts.
+   */
+  PROGRESS_UPDATE: 'session:progress-update',
   /** Broadcast whenever a fresh QuotaSnapshot is available (mirrors PUSH.QUOTA_UPDATE). */
   QUOTA_UPDATE: 'quota:update',
   /** Broadcast once when the device-code auth flow begins. */
@@ -350,6 +360,44 @@ export function createGsdApi(): GsdApi {
         cb(snapshot)
       ipcRenderer.on(PUSH.QUOTA_UPDATE, listener)
       return (): void => { ipcRenderer.off(PUSH.QUOTA_UPDATE, listener) }
+    },
+
+    // ── Auto-run progress ──────────────────────────────────────────────────────
+
+    /**
+     * Fetch the current GsdProgress snapshot for a session.
+     *
+     * Returns `null` when the session is unknown or no milestone has been
+     * planned yet for this session.
+     */
+    getProgress: (sessionId: SessionId): Promise<GsdProgress | null> =>
+      ipcRenderer.invoke(IPC.GET_PROGRESS, sessionId),
+
+    /**
+     * Subscribe to `session:progress-update` pushes for one session.
+     *
+     * Fires whenever ProgressTracker emits `'updated'` (on any Path A tool_use
+     * event or on Path B reconciliation after `execution_complete`).
+     * Filtered by sessionId so subscribers for different sessions are isolated.
+     *
+     * @returns An unsubscribe function.  Calling it multiple times is safe.
+     */
+    onProgressUpdate: (
+      sessionId: SessionId,
+      cb: (progress: GsdProgress) => void,
+    ): Unsubscribe => {
+      const listener = (
+        _ev: IpcRendererEvent,
+        payload: { sessionId: SessionId; progress: GsdProgress },
+      ): void => {
+        if (payload.sessionId === sessionId) {
+          cb(payload.progress)
+        }
+      }
+      ipcRenderer.on(PUSH.PROGRESS_UPDATE, listener)
+      return (): void => {
+        ipcRenderer.off(PUSH.PROGRESS_UPDATE, listener)
+      }
     },
   }
 }

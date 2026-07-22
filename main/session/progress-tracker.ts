@@ -145,6 +145,53 @@ class ProgressTracker extends EventEmitter {
     return structuredClone(this._progress)
   }
 
+  /**
+   * Apply Path B (ROADMAP.md) reconciliation results to the current snapshot.
+   *
+   * Upgrades a slice to `'complete'` when the authoritative ROADMAP.md checkbox
+   * is checked (`[x]`).  Never downgrades a slice that is already `'complete'`
+   * or `'skipped'`.  Cascades incomplete tasks inside a newly-completed slice
+   * to `'complete'`.
+   *
+   * Emits `'updated'` when at least one slice status changed.
+   *
+   * Guard: callers must check `ReconcileResult.hasData` before calling — pass
+   * the map only when `hasData` is `true`.
+   *
+   * @param sliceStatuses  Map from slice ID to status parsed from ROADMAP.md.
+   */
+  applyReconciliation(sliceStatuses: Map<string, GsdNodeStatus>): void {
+    const m = this._progress.milestone
+    if (!m) return
+
+    let changed = false
+    for (const [sliceId, reconciledStatus] of sliceStatuses) {
+      const slice = m.slices.find((s) => s.id === sliceId)
+      if (!slice) continue
+      // Path B is authoritative for 'complete'; never downgrade 'complete' or 'skipped'.
+      if (
+        reconciledStatus === 'complete' &&
+        slice.status !== 'complete' &&
+        slice.status !== 'skipped'
+      ) {
+        slice.status = 'complete'
+        // Cascade: incomplete tasks in a reconciled-complete slice → complete.
+        for (const t of slice.tasks) {
+          if (t.status !== 'complete' && t.status !== 'skipped') {
+            t.status = 'complete'
+          }
+        }
+        changed = true
+      }
+      // 'pending' from ROADMAP.md: do not override in-progress or complete status
+      // that Path A already knows about.
+    }
+
+    if (changed) {
+      this.emit('updated', this.snapshot())
+    }
+  }
+
   // ── Mutation helpers ────────────────────────────────────────────────────────
 
   private _planMilestone(a: Record<string, unknown>): void {

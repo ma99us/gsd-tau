@@ -171,6 +171,23 @@ export interface GsdApi {
   startQuotaAuth(): Promise<void>
   /** Disconnect the quota service GitHub account (delete gh-auth.json). */
   disconnectQuotaAuth(): Promise<void>
+
+  // ---------------------------------------------------------------------------
+  // Auto-run progress (M007/S02)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch the current GsdProgress snapshot for a session.
+   * Returns `null` when the session is unknown or no milestone has been planned yet.
+   */
+  getProgress(sessionId: SessionId): Promise<GsdProgress | null>
+  /**
+   * Subscribe to `session:progress-update` pushes for one session.
+   * Fires whenever ProgressTracker emits `'updated'` (Path A or Path B).
+   *
+   * @returns An unsubscribe function.  Calling it multiple times is safe.
+   */
+  onProgressUpdate(sessionId: SessionId, cb: (progress: GsdProgress) => void): Unsubscribe
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */

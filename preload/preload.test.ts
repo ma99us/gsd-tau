@@ -391,4 +391,89 @@ describe('createGsdApi', () => {
       expect(cb).toHaveBeenNthCalledWith(3, 'Stopped')
     })
   })
+
+  // ── getProgress ────────────────────────────────────────────────────────────────
+
+  describe('getProgress', () => {
+    it('invokes the getProgress channel with sessionId', async () => {
+      mockInvoke.mockResolvedValue(null)
+      await api.getProgress(SESSION_ID)
+      expect(mockInvoke).toHaveBeenCalledWith('getProgress', SESSION_ID)
+    })
+
+    it('returns the GsdProgress snapshot from ipcRenderer.invoke', async () => {
+      const snapshot = {
+        milestone: null,
+        currentSliceId: null,
+        currentTaskId: null,
+        lastToolAt: null,
+      }
+      mockInvoke.mockResolvedValue(snapshot)
+      const result = await api.getProgress(SESSION_ID)
+      expect(result).toEqual(snapshot)
+    })
+
+    it('returns null when the session is unknown', async () => {
+      mockInvoke.mockResolvedValue(null)
+      const result = await api.getProgress(SESSION_ID)
+      expect(result).toBeNull()
+    })
+  })
+
+  // ── onProgressUpdate ────────────────────────────────────────────────────────
+
+  describe('onProgressUpdate', () => {
+    it('registers a listener on the session:progress-update channel', () => {
+      api.onProgressUpdate(SESSION_ID, vi.fn())
+      expect(mockOn).toHaveBeenCalledWith('session:progress-update', expect.any(Function))
+    })
+
+    it('returns an unsubscribe function', () => {
+      const unsubscribe = api.onProgressUpdate(SESSION_ID, vi.fn())
+      expect(typeof unsubscribe).toBe('function')
+    })
+
+    it('calls callback when sessionId matches', () => {
+      const cb = vi.fn()
+      api.onProgressUpdate(SESSION_ID, cb)
+
+      const listener = mockOn.mock.calls[0][1]
+      const progress = {
+        milestone: null,
+        currentSliceId: null,
+        currentTaskId: null,
+        lastToolAt: null,
+      }
+      listener({}, { sessionId: SESSION_ID, progress })
+
+      expect(cb).toHaveBeenCalledWith(progress)
+    })
+
+    it('does NOT call callback when sessionId does not match', () => {
+      const cb = vi.fn()
+      api.onProgressUpdate(SESSION_ID, cb)
+
+      const listener = mockOn.mock.calls[0][1]
+      listener({}, { sessionId: 's_other', progress: {} })
+
+      expect(cb).not.toHaveBeenCalled()
+    })
+
+    it('unsubscribe calls ipcRenderer.off with the exact registered listener', () => {
+      const unsubscribe = api.onProgressUpdate(SESSION_ID, vi.fn())
+      const registeredListener = mockOn.mock.calls[0][1]
+
+      unsubscribe()
+
+      expect(mockOff).toHaveBeenCalledWith('session:progress-update', registeredListener)
+    })
+
+    it('unsubscribe is idempotent', () => {
+      const unsubscribe = api.onProgressUpdate(SESSION_ID, vi.fn())
+      expect(() => {
+        unsubscribe()
+        unsubscribe()
+      }).not.toThrow()
+    })
+  })
 })
