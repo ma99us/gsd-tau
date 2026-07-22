@@ -7,4 +7,4 @@
 - ✅ **M003: UI-request Bridge** (`depends:[—]`)
 - ✅ **M004: Multi-project Tabs, Persistence, Resume** (`depends:[—]`)
 - ✅ **M005: Model Picker, Context Gauge, Copilot Quota** (`depends:[M004]`)
-- 🔄 **M006: Command Palette** (`depends:[—]`)
+- ✅ **M006: Command Palette** (`depends:[—]`)

@@ -27,7 +27,7 @@
 - [x] **S04: Keyboard shortcut wiring and palette integration** `risk:low` `depends:[S03]`
   > After this: In the running app: Ctrl+Shift+P opens palette; Ctrl+K moves focus to composer textarea; Ctrl+. triggers the model picker dropdown open state.
 
-- [ ] **S05: Pi slash commands in palette and regression check** `risk:medium` `depends:[S04]`
+- [x] **S05: Pi slash commands in palette and regression check** `risk:medium` `depends:[S04]`
   > After this: In the running app with a live pi session: open palette, type '/gsd', the /gsd skill appears with its description and 'skill' badge; pressing Enter sends '/gsd' to pi.
 
 ## Boundary Map

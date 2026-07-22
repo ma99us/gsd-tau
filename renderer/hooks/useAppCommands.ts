@@ -43,6 +43,13 @@ export interface AppCommand {
    * Absent on built-in app commands; set on pi slash commands.
    */
   description?: string
+  /**
+   * When true, the command palette enters argument-input mode when this command
+   * is selected instead of executing immediately.  The user types arguments,
+   * then presses Enter to send `<label> <args>` as a prompt.
+   * Absent (falsy) on app commands; set on pi slash commands.
+   */
+  acceptsArgs?: boolean
   /** Invoke the command. May return a Promise; errors propagate to the caller. */
   execute: () => void | Promise<void>
 }

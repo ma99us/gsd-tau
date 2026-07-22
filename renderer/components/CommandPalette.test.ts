@@ -219,6 +219,23 @@ describe('filterAndSortCommands — pi commands and badge/description fields', (
     expect(results.some(c => c.id === 'pi:/gsd')).toBe(true)
   })
 
+  it('acceptsArgs field is preserved through filterAndSortCommands', () => {
+    const cmds: AppCommand[] = [
+      { id: 'pi:/gsd', label: '/gsd', badge: 'skill', acceptsArgs: true, execute: () => {} },
+      { id: 'close-tab', label: 'Close tab', execute: () => {} },
+    ]
+    const results = filterAndSortCommands('', cmds, [])
+    expect(results.find(c => c.id === 'pi:/gsd')?.acceptsArgs).toBe(true)
+    expect(results.find(c => c.id === 'close-tab')?.acceptsArgs).toBeUndefined()
+  })
+
+  it('app commands from buildAppCommands do not have acceptsArgs set', () => {
+    const results = filterAndSortCommands('', appCommands, [])
+    for (const cmd of results) {
+      expect(cmd.acceptsArgs).toBeUndefined()
+    }
+  })
+
   it('badge field is preserved through filterAndSortCommands', () => {
     const cmds: AppCommand[] = [
       { id: 'pi:/skill-cmd', label: '/skill-cmd', badge: 'skill', execute: () => {} },
