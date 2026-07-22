@@ -98,8 +98,50 @@
         "success": 18,
         "fail": 0
       }
+    },
+    "discuss-milestone": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 1,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 0,
+        "fail": 0
+      }
+    },
+    "research-milestone": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 1,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 0,
+        "fail": 0
+      }
+    },
+    "plan-milestone": {
+      "light": {
+        "success": 0,
+        "fail": 0
+      },
+      "standard": {
+        "success": 0,
+        "fail": 0
+      },
+      "heavy": {
+        "success": 1,
+        "fail": 0
+      }
     }
   },
   "feedback": [],
-  "updatedAt": "2026-07-22T16:26:59.443Z"
+  "updatedAt": "2026-07-22T17:47:41.265Z"
 }
