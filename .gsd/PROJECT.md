@@ -14,10 +14,18 @@ gsd-tau is a Windows Electron desktop shell over headless `@opengsd/gsd-pi` sess
 
 ## Completed Milestones
 
+- **M001 (Auto-run Panel):** Real-time visibility into `/gsd auto` sessions — milestone/slice/task tree updating live as pi works, Abort/Pause control, and correct state on session reattach via Path B reconciliation seeding
 - **M002 (Phase 1):** Session Manager — pi process lifecycle, IPC bridge, session persistence
 - **M003 (Phase 2):** UI Request Bridge — extension_ui_request handling, blocker resolution
 - **M004 (Phase 3):** Project and Session Switcher — tabs, window management, session restore
 - **M005:** Model Picker, Context Gauge, Copilot Quota — SessionHeaderBar with model chip, thinking level chip, context gauge, and quota widget; 859 unit tests pass
+
+## M001 Deliverables
+
+- **AutoRunPanel** — live milestone/slice/task tree in session view, auto-shows when session enters Auto state
+- **Path B seeding** — `reconcileProgress` called fire-and-forget at open-project time; reads STATE.md for active milestone ID
+- **Abort control** — Abort button in session header during auto-run; sends `abort()` + `/gsd stop`; session returns to idle
+- **1188 unit tests passing** (up from 1184 baseline)
 
 ## M005 Deliverables
 
@@ -43,6 +51,7 @@ gsd-tau is a Windows Electron desktop shell over headless `@opengsd/gsd-pi` sess
 - Atomic-write persistence (.tmp → rename) for JSON state files
 - Export pure helpers from components for Node-env unit testing
 - IPC push fan-out via `getAllWebContents()`
+- Fire-and-forget async IIFE for open-time side effects (Path B seeding pattern)
 
 ## Next Phase
 
@@ -50,8 +59,8 @@ Phase 4 and beyond per `docs/plan/ROADMAP.md`.
 
 ## Milestone Sequence
 
-- [ ] M001:  — Planned.
+- [x] M001: Auto-run Panel — Live auto-run visibility, Abort control, Path B session reattach seeding
 - [x] M002: Session Manager and Minimal Shell — A running Electron app that spawns a pi child for one project, streams every RPC event to a chat pane, and shuts down cleanly.
 - [x] M003: UI-request Bridge — Every pi question reaches the user as a native modal.
 - [x] M004: Multi-project Tabs, Persistence, Resume — A real multi-project desktop shell that survives reboots.
-- [ ] M005: Model Picker, Context Gauge, Copilot Quota — Session header shows live model, thinking level, context gauge, and cost.
+- [x] M005: Model Picker, Context Gauge, Copilot Quota — Session header shows live model, thinking level, context gauge, and cost.

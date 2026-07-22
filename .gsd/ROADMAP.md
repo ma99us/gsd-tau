@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **M001: Auto-run Panel** (`depends:[—]`)
+- ✅ **M001: Auto-run Panel** (`depends:[—]`)
 - ✅ **M002: Session Manager and Minimal Shell** (`depends:[—]`)
 - ✅ **M003: UI-request Bridge** (`depends:[—]`)
 - ✅ **M004: Multi-project Tabs, Persistence, Resume** (`depends:[—]`)
