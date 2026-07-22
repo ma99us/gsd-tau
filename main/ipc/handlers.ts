@@ -2,6 +2,7 @@ import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents, she
 import type { WebContents } from 'electron'
 import { basename, join } from 'node:path'
 import { readdirSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
 import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot, GsdProgress } from '../../shared/types'
 import type { QuotaService } from '../services/quota-service'
@@ -530,6 +531,33 @@ export function registerHandlers(
         fanOut(getWc, PUSH.PROGRESS_UPDATE, { sessionId: id, progress })
       }
       progressTracker.on('updated', onProgressUpdated)
+
+      // ── Path B: seed reconciliation at open time ───────────────────────────
+      // Read the active milestone from STATE.md and run a reconciliation pass
+      // so the progress panel shows correct slice statuses immediately on open,
+      // before any tool_use events arrive (Path A has no data yet at this point).
+      void (async () => {
+        try {
+          const stateContent = await readFile(join(cwd, '.gsd', 'STATE.md'), 'utf-8')
+          const m = stateContent.match(/^Active Milestone:\s*(\S+)/m)
+          const milestoneId = m?.[1]
+          if (!milestoneId) return
+          const result = await reconcileProgress(cwd, milestoneId)
+          if (result.hasData) {
+            progressTracker.applyReconciliation(result.sliceStatuses)
+            console.debug(
+              `[handlers] open-time Path B: reconciled ${result.sliceStatuses.size} slice(s) for milestone ${milestoneId} (session ${id})`,
+            )
+          } else {
+            console.debug(
+              `[handlers] open-time Path B: no ROADMAP.md data for milestone ${milestoneId}, keeping Path A state (session ${id})`,
+            )
+          }
+        } catch {
+          // Silent — STATE.md may not exist (new project) or file I/O may fail.
+          // Never block session open on reconciliation errors.
+        }
+      })()
 
       handle.on('event', onEvent)
       handle.on('transport-error', onTransportError)
