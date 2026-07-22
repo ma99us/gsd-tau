@@ -1403,6 +1403,8 @@ describe('quota IPC handlers', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+      undefined,
       mockQuotaService as never,
     ))
   })
@@ -1652,5 +1654,95 @@ describe('Path B open-time seeding', () => {
     expect(manager.open).toHaveBeenCalledWith('/my/proj')
     // reconcileProgress must NOT have been called — error was caught before it
     expect(reconcileProgress).not.toHaveBeenCalled()
+  })
+
+  // ── toast callbacks ──────────────────────────────────────────────────────────
+
+  describe('stopped and milestone-complete toast callbacks', () => {
+    let showStoppedToastFn: ReturnType<typeof vi.fn>
+    let showMilestoneCompleteToastFn: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+      // Tear down the no-toast registration from the outer beforeEach, then
+      // re-register with injected toast mocks so assertions can inspect calls.
+      cleanup()
+
+      showStoppedToastFn = vi.fn()
+      showMilestoneCompleteToastFn = vi.fn()
+
+      ;({ cleanup } = registerHandlers(
+        manager as never,
+        undefined,
+        undefined,
+        showStoppedToastFn,
+        showMilestoneCompleteToastFn,
+      ))
+    })
+
+    it('calls showStoppedToastFn with the session basename on transport-error', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/path/to/my-project')
+      mockHandle.emit('transport-error', { error: new Error('pi crashed') })
+      expect(showStoppedToastFn).toHaveBeenCalledWith('my-project')
+      expect(showStoppedToastFn).toHaveBeenCalledTimes(1)
+    })
+
+    it('does NOT call showStoppedToastFn for agent_start or agent_end events', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+      mockHandle.emit('event', { type: 'agent_start' })
+      mockHandle.emit('event', { type: 'agent_end' })
+      expect(showStoppedToastFn).not.toHaveBeenCalled()
+    })
+
+    it('calls showMilestoneCompleteToastFn with session basename and milestone title', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/path/to/my-project')
+      // Plan the milestone so ProgressTracker has a title to emit.
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_plan_milestone',
+        args: { milestoneId: 'M001', title: 'Phase 1: Session Manager', slices: [] },
+      })
+      // Complete it — triggers progressTracker \'milestone-complete\' event.
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_complete_milestone',
+        args: { milestoneId: 'M001' },
+      })
+      expect(showMilestoneCompleteToastFn).toHaveBeenCalledWith(
+        'my-project',
+        'Phase 1: Session Manager',
+      )
+      expect(showMilestoneCompleteToastFn).toHaveBeenCalledTimes(1)
+    })
+
+    it('does NOT call showMilestoneCompleteToastFn for non-complete tool events', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_plan_milestone',
+        args: { milestoneId: 'M001', title: 'Test Milestone', slices: [] },
+      })
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_plan_slice',
+        args: { milestoneId: 'M001', sliceId: 'S01', goal: 'test goal' },
+      })
+      expect(showMilestoneCompleteToastFn).not.toHaveBeenCalled()
+    })
+
+    it('does NOT call showMilestoneCompleteToastFn when milestoneId does not match active milestone', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_plan_milestone',
+        args: { milestoneId: 'M001', title: 'Test Milestone', slices: [] },
+      })
+      // Attempt to complete a different (non-active) milestone.
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_complete_milestone',
+        args: { milestoneId: 'M999' },
+      })
+      expect(showMilestoneCompleteToastFn).not.toHaveBeenCalled()
+    })
   })
 })

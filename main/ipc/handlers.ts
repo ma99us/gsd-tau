@@ -4,7 +4,7 @@ import { basename, join } from 'node:path'
 import { readdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
-import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot, GsdProgress } from '../../shared/types'
+import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot, GsdProgress, GsdMilestone } from '../../shared/types'
 import type { QuotaService } from '../services/quota-service'
 import { BlockerTracker } from '../session/blocker-tracker'
 import { ProgressTracker } from '../session/progress-tracker'
@@ -169,6 +169,28 @@ export type GetAllWebContents = () => WebContents[]
  */
 export type ShowBlockerToastFn = (sessionName: string, method: string) => void
 
+/**
+ * Injectable toast callback — called when a session transitions to the Stopped
+ * state (transport-error / pi crash).
+ *
+ * The default is a no-op so tests that don't exercise notifications can call
+ * `registerHandlers` without this argument.
+ *
+ * @param sessionName  Human-readable session identifier (typically `basename(cwd)`).
+ */
+export type ShowStoppedToastFn = (sessionName: string) => void
+
+/**
+ * Injectable toast callback — called when a milestone completes.
+ *
+ * The default is a no-op so tests that don't exercise notifications can call
+ * `registerHandlers` without this argument.
+ *
+ * @param sessionName     Human-readable session identifier (typically `basename(cwd)`).
+ * @param milestoneTitle  Display title of the completed milestone.
+ */
+export type ShowMilestoneCompleteToastFn = (sessionName: string, milestoneTitle: string) => void
+
 /** Bookkeeping held per open session inside the handler registry. */
 interface SessionEntry {
   machine: SessionStateMachine
@@ -325,8 +347,13 @@ export function parseOpenProjectArg(argv: string[]): string | null {
  * @param manager              The live {@link SessionManager} that owns pi sessions.
  * @param getAllWebContents     Injected source of active webContents (injectable for tests).
  *                             Pass `undefined` to use the real Electron webContents.
- * @param showBlockerToastFn   Injected toast callback fired on blocker arrival.
- *                             Pass `undefined` to use a silent no-op.
+ * @param showBlockerToastFn            Injected toast callback fired on blocker arrival.
+ *                                    Pass `undefined` to use a silent no-op.
+ * @param showStoppedToastFn           Injected toast callback fired when a session transitions
+ *                                    to Stopped (transport-error / pi crash).
+ *                                    Pass `undefined` to use a silent no-op.
+ * @param showMilestoneCompleteToastFn Injected toast callback fired when a milestone completes.
+ *                                    Pass `undefined` to use a silent no-op.
  * @returns An object with `cleanup` (removes all handlers) and
  *          `handleOpenProject` (shared with the second-instance handler so a
  *          forwarded `--open-project` path can open a new tab in the first
@@ -336,6 +363,8 @@ export function registerHandlers(
   manager: SessionManager,
   getAllWebContents?: GetAllWebContents,
   showBlockerToastFn: ShowBlockerToastFn = () => {},
+  showStoppedToastFn: ShowStoppedToastFn = () => {},
+  showMilestoneCompleteToastFn: ShowMilestoneCompleteToastFn = () => {},
   registryStore?: RegistryStore,
   getWinId?: () => string,
   quotaService?: QuotaService,
@@ -510,6 +539,7 @@ export function registerHandlers(
       // ── handle 'transport-error' ─────────────────────────────────────────────
       const onTransportError = (payload: { error: unknown }): void => {
         machine.feed('transport-error')
+        showStoppedToastFn(basename(cwd))
         fanOut(getWc, PUSH.SESSION_EVENT, {
           sessionId: id,
           event: { type: 'transport-error', error: payload.error },
@@ -523,6 +553,11 @@ export function registerHandlers(
           state: payload.to,
         })
       }
+
+      const onMilestoneComplete = (milestone: GsdMilestone): void => {
+        showMilestoneCompleteToastFn(basename(cwd), milestone.title)
+      }
+      progressTracker.on('milestone-complete', onMilestoneComplete)
 
       const onProgressUpdated = (progress: GsdProgress): void => {
         console.log(
