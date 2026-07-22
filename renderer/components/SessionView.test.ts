@@ -522,7 +522,7 @@ describe('SessionView — AutoRunPanel visibility gate (negative tests)', () => 
    */
 
   it('gate: progress === null suppresses the panel (initial loading state)', () => {
-    const progress: GsdProgress | null = null
+    const progress: GsdProgress | null = null as GsdProgress | null
     const panelOpen = true
     const visible = progress !== null && progress.milestone !== null && panelOpen
     expect(visible).toBe(false)
