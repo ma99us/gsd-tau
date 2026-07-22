@@ -31,6 +31,7 @@ const KNOWN_TYPES = new Set([
   'message_update',
   'tool_use',
   'tool_result',
+  'cost_update',
 ])
 
 // ── SessionHandle ──────────────────────────────────────────────────────────────

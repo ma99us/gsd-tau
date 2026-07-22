@@ -1,0 +1,109 @@
+{
+  "runId": "uat:M007:S01:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M007",
+  "sliceId": "S01",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-22T14:53:19.122Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "UAT-01",
+      "description": "Full milestone→slice→task mutation lifecycle — run pnpm vitest run main/session/progress-tracker.test.ts, expect 49 passed, exit 0",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "90884d11-d3aa-4764-91f2-ff12bff61025",
+          "note": "49 passed (49), 1 test file passed, exit 0"
+        }
+      ],
+      "notes": "Vitest output: Test Files 1 passed (1), Tests 49 passed (49), Duration 2.74s"
+    },
+    {
+      "id": "UAT-02",
+      "description": "TypeScript type safety — run pnpm tsc --noEmit, expect exit 0, no diagnostic output",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "5fd4287c-2fba-48c1-9404-7c94c39ba485",
+          "note": "tsc --noEmit exit 0, empty stdout/stderr"
+        }
+      ],
+      "notes": "tsc --noEmit exited 0 with no output — no type errors."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 49 vitest tests passed and TypeScript type check exited 0 with no diagnostics."
+}
