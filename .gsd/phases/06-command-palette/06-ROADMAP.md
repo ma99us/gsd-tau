@@ -15,7 +15,7 @@
 
 ## Slices
 
-- [ ] **S01: Fuzzy match engine and MRU hook** `risk:low` `depends:[]`
+- [x] **S01: Fuzzy match engine and MRU hook** `risk:low` `depends:[]`
   > After this: vitest run passes; fuzzy('cp', 'compact context') scores higher than fuzzy('cp', 'open project'); MRU hook round-trips through localStorage.
 
 - [ ] **S02: App command registry** `risk:low` `depends:[S01]`

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T02",
+  "unitId": "M006/S01/T02",
+  "timestamp": 1784722840854,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm vitest run renderer/hooks/useMRU.test.ts",
+      "exitCode": 0,
+      "durationMs": 7714,
+      "verdict": "pass"
+    }
+  ]
+}
