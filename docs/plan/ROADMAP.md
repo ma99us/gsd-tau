@@ -4,9 +4,10 @@ Phases are sequenced by dependency and risk. Each phase produces a runnable app;
 we don't ship dark code. Requirement IDs link back to
 [00-vision-and-requirements.md](../00-vision-and-requirements.md).
 
-## Phase 1 — Session Manager & one-project prototype
+## Phase 1 — Session Manager & one-project prototype ✅
 
 **Doc:** [PHASE-1-session-manager.md](./PHASE-1-session-manager.md)
+**Milestone:** M002 (complete 2026-07-20)
 **Requirements advanced:** R1 (partial), R11
 **Goal:** Prove we can spawn a pi child, prompt it, stream events, and shut down
 cleanly. Minimal Electron shell with one hardcoded project. Chat pane renders
@@ -14,9 +15,10 @@ messages and tool cards. No modals yet, no persistence yet, no tabs.
 
 Demo: launch the app, chat with pi against a fixed test repo, close cleanly.
 
-## Phase 2 — UI-request bridge
+## Phase 2 — UI-request bridge ✅
 
 **Doc:** [PHASE-2-ui-request-bridge.md](./PHASE-2-ui-request-bridge.md)
+**Milestone:** M003 (complete 2026-07-21)
 **Requirements advanced:** R3 (Waiting-on-you state), R5 (partial)
 **Goal:** Handle every `extension_ui_request` method with a matching modal.
 Ensure shutdown-with-open-blocker sends cancellations. Add basic Windows toast
@@ -25,9 +27,10 @@ notification for blockers.
 Demo: run a pi flow known to raise a blocker (e.g. `/gsd` on a fresh repo, which
 prompts for setup); answer via GUI; verify pi continues.
 
-## Phase 3 — Multi-project tabs, persistence, resume
+## Phase 3 — Multi-project tabs, persistence, resume ✅
 
 **Doc:** [PHASE-3-project-and-session-switcher.md](./PHASE-3-project-and-session-switcher.md)
+**Milestone:** M004 (complete 2026-07-21)
 **Requirements advanced:** R1, R2, R5 (Open Project flyout)
 **Goal:** Tab bar. Open Project flyout with recents + file picker. Registry file.
 Restore tabs + sessions on relaunch via `switch_session`. Single-instance lock.
@@ -35,11 +38,9 @@ Restore tabs + sessions on relaunch via `switch_session`. Single-instance lock.
 Demo: open three projects in three tabs, quit, relaunch, all three restore with
 conversation history intact.
 
----
+## Phase 4 — Model picker, context gauge, Copilot quota widget ✅
 
-## Later phases (sketches — get their own docs when we start them)
-
-### Phase 4 — Model picker, context gauge, Copilot quota widget
+**Milestone:** M005 (complete 2026-07-21)
 **Requirements:** R6, R7. See [60-model-and-context.md](../60-model-and-context.md),
 [65-copilot-quota.md](../65-copilot-quota.md).
 
@@ -47,13 +48,34 @@ Header component with live model + gauge + cost. Model picker dropdown. Set/cycl
 model + thinking level. Always-on quota service: polls `copilot_internal/user`
 every 15 min, maintains rolling history in `%APPDATA%\gsd-tau\quota-history.json`,
 computes burn-rate projections. Compact header widget + click-to-expand popover.
-Calendar-day projections only (work-day + holiday mode is Phase 4b stretch).
+Calendar-day projections only.
+
+**What was built:** `SessionHeaderBar`, `ModelPickerDropdown`, `ThinkingLevelChip`,
+`ContextGauge`, `QuotaWidget`. `QuotaService` and `QuotaHistory` main-process
+services. Full IPC surface for model/thinking/stats/quota. 859 unit tests green.
+
+---
+
+## Later phases (sketches — get their own docs when we start them)
 
 ### Phase 5 — Command palette
-**Requirements:** R5 (full). See [40-ui-design.md](../40-ui-design.md#command-palette).
+**Requirements:** R5 (full). Milestone: M006 (planned).
+See [40-ui-design.md](../40-ui-design.md#command-palette).
 
-`Ctrl+Shift+P` palette merging app commands and pi slash commands. `/` in
-composer opens the palette scoped to slash commands.
+`Ctrl+Shift+P` global overlay merging static app commands with pi slash commands
+(fetched via `get_commands` RPC, `RpcSlashCommand` type with `name`, `description`,
+`source: "extension"|"prompt"|"skill"`, optional `location` and `path`).
+Fuzzy match, MRU-boosted, arrow-key nav. Selecting a pi command sends it as a
+`prompt()` starting with `/`; app commands execute their bound action.
+
+Note: `Composer.tsx` already has a `/` slash-picker (slash commands + `/model`
+routing). Phase 5 builds the **global** `Ctrl+Shift+P` palette as a separate
+overlay component; the composer picker may share its filtered list logic but is
+not replaced.
+
+Keyboard shortcuts wired in this phase: `Ctrl+Shift+P` (palette), `Ctrl+.`
+(model picker — links to existing `ModelPickerDropdown`), `Ctrl+K` (focus
+composer), `Ctrl+/` (toggle auto-run panel — stubbed since panel comes in Phase 6).
 
 ### Phase 6 — Auto-run panel
 **Requirements:** R4. See [50-auto-run-view.md](../50-auto-run-view.md).

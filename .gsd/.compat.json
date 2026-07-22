@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-21T21:15:35.305Z",
+  "lastProjectedAt": "2026-07-22T12:17:03.152Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -683,6 +683,549 @@
       "entities": [
         "M005",
         "M005/S05"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-01-ASSESSMENT.md": {
+      "sha": "f674e740127fe1e0",
+      "entities": [
+        "M004",
+        "M004/S01"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-01-SUMMARY.md": {
+      "sha": "dc1575e0b2a41d97",
+      "entities": [
+        "M004",
+        "M004/S01"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-01-UAT.md": {
+      "sha": "90f4b3f61fb64ecb",
+      "entities": [
+        "M004",
+        "M004/S01"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S01-T01-SUMMARY.md": {
+      "sha": "cc70bba775466487",
+      "entities": [
+        "M004",
+        "M004/S01",
+        "M004/S01/T01"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S01-T02-SUMMARY.md": {
+      "sha": "f2a0f081bf3b1893",
+      "entities": [
+        "M004",
+        "M004/S01",
+        "M004/S01/T02"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-02-ASSESSMENT.md": {
+      "sha": "93f206bff25925d9",
+      "entities": [
+        "M004",
+        "M004/S02"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-02-SUMMARY.md": {
+      "sha": "f9e7dad2a51e4135",
+      "entities": [
+        "M004",
+        "M004/S02"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-02-UAT.md": {
+      "sha": "16b89d69c7aa6398",
+      "entities": [
+        "M004",
+        "M004/S02"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S02-T03-SUMMARY.md": {
+      "sha": "60f271645798f171",
+      "entities": [
+        "M004",
+        "M004/S02",
+        "M004/S02/T03"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S02-T04-SUMMARY.md": {
+      "sha": "08358973419840d1",
+      "entities": [
+        "M004",
+        "M004/S02",
+        "M004/S02/T04"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-03-ASSESSMENT.md": {
+      "sha": "2385a7a34fe29d8b",
+      "entities": [
+        "M004",
+        "M004/S03"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-03-SUMMARY.md": {
+      "sha": "6b1c44132e3933ec",
+      "entities": [
+        "M004",
+        "M004/S03"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-03-UAT.md": {
+      "sha": "c795a8ef6f9a2a4f",
+      "entities": [
+        "M004",
+        "M004/S03"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S03-T05-SUMMARY.md": {
+      "sha": "c9f4f424d1a03a62",
+      "entities": [
+        "M004",
+        "M004/S03",
+        "M004/S03/T05"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S03-T06-SUMMARY.md": {
+      "sha": "29ba070c32a9fbc3",
+      "entities": [
+        "M004",
+        "M004/S03",
+        "M004/S03/T06"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-04-ASSESSMENT.md": {
+      "sha": "a904d3a68ddd00ec",
+      "entities": [
+        "M004",
+        "M004/S04"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-04-SUMMARY.md": {
+      "sha": "a65264fbde172a1a",
+      "entities": [
+        "M004",
+        "M004/S04"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-04-UAT.md": {
+      "sha": "51de124bbb5ad606",
+      "entities": [
+        "M004",
+        "M004/S04"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S04-T07-SUMMARY.md": {
+      "sha": "202f57068ffe8601",
+      "entities": [
+        "M004",
+        "M004/S04",
+        "M004/S04/T07"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S04-T08-SUMMARY.md": {
+      "sha": "a61497f61eae9701",
+      "entities": [
+        "M004",
+        "M004/S04",
+        "M004/S04/T08"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S04-T09-SUMMARY.md": {
+      "sha": "e4da4eb9b9e6f3fa",
+      "entities": [
+        "M004",
+        "M004/S04",
+        "M004/S04/T09"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-05-SUMMARY.md": {
+      "sha": "33793fbe42323bc8",
+      "entities": [
+        "M004",
+        "M004/S05"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-05-UAT.md": {
+      "sha": "ad6a5c0b3c465ac3",
+      "entities": [
+        "M004",
+        "M004/S05"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S05-T10-SUMMARY.md": {
+      "sha": "0961ecaf2905b9e3",
+      "entities": [
+        "M004",
+        "M004/S05",
+        "M004/S05/T10"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S05-T11-SUMMARY.md": {
+      "sha": "0dca681166790765",
+      "entities": [
+        "M004",
+        "M004/S05",
+        "M004/S05/T11"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S05-T12-SUMMARY.md": {
+      "sha": "f374c109fcbf93e8",
+      "entities": [
+        "M004",
+        "M004/S05",
+        "M004/S05/T12"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-06-ASSESSMENT.md": {
+      "sha": "09c100d145202f54",
+      "entities": [
+        "M004",
+        "M004/S06"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-06-RESEARCH.md": {
+      "sha": "c96bd4cc26151da4",
+      "entities": [
+        "M004",
+        "M004/S06"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-06-SUMMARY.md": {
+      "sha": "d4b6b8695ac3aa8b",
+      "entities": [
+        "M004",
+        "M004/S06"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/04-06-UAT.md": {
+      "sha": "298ed8333ca9bbce",
+      "entities": [
+        "M004",
+        "M004/S06"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S06-T01-SUMMARY.md": {
+      "sha": "a79f7f8d744bc8ee",
+      "entities": [
+        "M004",
+        "M004/S06",
+        "M004/S06/T01"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S06-T02-SUMMARY.md": {
+      "sha": "9471dabca3f343a4",
+      "entities": [
+        "M004",
+        "M004/S06",
+        "M004/S06/T02"
+      ]
+    },
+    "phases/04-multi-project-tabs-persistence-resume/S06-T03-SUMMARY.md": {
+      "sha": "f09354f948ef0ba0",
+      "entities": [
+        "M004",
+        "M004/S06",
+        "M004/S06/T03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-01-ASSESSMENT.md": {
+      "sha": "e2c47ca3046030dc",
+      "entities": [
+        "M005",
+        "M005/S01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-01-RESEARCH.md": {
+      "sha": "97658614172e9c79",
+      "entities": [
+        "M005",
+        "M005/S01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-01-SUMMARY.md": {
+      "sha": "83a487b9f3414af8",
+      "entities": [
+        "M005",
+        "M005/S01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-01-UAT.md": {
+      "sha": "f9be10623b26fbfa",
+      "entities": [
+        "M005",
+        "M005/S01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S01-T01-SUMMARY.md": {
+      "sha": "1d79fbd8b59ce79c",
+      "entities": [
+        "M005",
+        "M005/S01",
+        "M005/S01/T01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S01-T02-SUMMARY.md": {
+      "sha": "a1f6d3fd4b3c99e5",
+      "entities": [
+        "M005",
+        "M005/S01",
+        "M005/S01/T02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S01-T03-SUMMARY.md": {
+      "sha": "19cb1feebfbf26c8",
+      "entities": [
+        "M005",
+        "M005/S01",
+        "M005/S01/T03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S01-T04-SUMMARY.md": {
+      "sha": "0e16ec0f27f9e8bb",
+      "entities": [
+        "M005",
+        "M005/S01",
+        "M005/S01/T04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-02-ASSESSMENT.md": {
+      "sha": "48effac88ef7f74a",
+      "entities": [
+        "M005",
+        "M005/S02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-02-RESEARCH.md": {
+      "sha": "b6c7882a8aa43f29",
+      "entities": [
+        "M005",
+        "M005/S02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-02-SUMMARY.md": {
+      "sha": "66615a746586f79e",
+      "entities": [
+        "M005",
+        "M005/S02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-02-UAT.md": {
+      "sha": "a390e9a8e6c12ea6",
+      "entities": [
+        "M005",
+        "M005/S02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S02-T01-SUMMARY.md": {
+      "sha": "5839c2c9657c0c57",
+      "entities": [
+        "M005",
+        "M005/S02",
+        "M005/S02/T01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S02-T02-SUMMARY.md": {
+      "sha": "4d75954ec9c39785",
+      "entities": [
+        "M005",
+        "M005/S02",
+        "M005/S02/T02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S02-T03-SUMMARY.md": {
+      "sha": "99c2617d4545a2b2",
+      "entities": [
+        "M005",
+        "M005/S02",
+        "M005/S02/T03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S02-T04-SUMMARY.md": {
+      "sha": "c1ef7f190b773b34",
+      "entities": [
+        "M005",
+        "M005/S02",
+        "M005/S02/T04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-03-ASSESSMENT.md": {
+      "sha": "07e58e6b0ed289a6",
+      "entities": [
+        "M005",
+        "M005/S03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-03-RESEARCH.md": {
+      "sha": "409e432119c341ea",
+      "entities": [
+        "M005",
+        "M005/S03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-03-SUMMARY.md": {
+      "sha": "ca91ce67a0a72fb1",
+      "entities": [
+        "M005",
+        "M005/S03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-03-UAT.md": {
+      "sha": "894da00f78d598dc",
+      "entities": [
+        "M005",
+        "M005/S03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S03-T01-SUMMARY.md": {
+      "sha": "3e8038c38c3348b1",
+      "entities": [
+        "M005",
+        "M005/S03",
+        "M005/S03/T01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S03-T02-SUMMARY.md": {
+      "sha": "9021b0b10dbeb8b4",
+      "entities": [
+        "M005",
+        "M005/S03",
+        "M005/S03/T02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S03-T03-SUMMARY.md": {
+      "sha": "63cedab29edb5d63",
+      "entities": [
+        "M005",
+        "M005/S03",
+        "M005/S03/T03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-04-ASSESSMENT.md": {
+      "sha": "a052e5a7a1179725",
+      "entities": [
+        "M005",
+        "M005/S04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-04-RESEARCH.md": {
+      "sha": "d4590d91547008a1",
+      "entities": [
+        "M005",
+        "M005/S04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-04-SUMMARY.md": {
+      "sha": "74b963752ed473aa",
+      "entities": [
+        "M005",
+        "M005/S04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-04-UAT.md": {
+      "sha": "1fe2bbab5b4111c7",
+      "entities": [
+        "M005",
+        "M005/S04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S04-T01-SUMMARY.md": {
+      "sha": "c7ad0b412876b657",
+      "entities": [
+        "M005",
+        "M005/S04",
+        "M005/S04/T01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S04-T02-SUMMARY.md": {
+      "sha": "76b320aaec0ebb57",
+      "entities": [
+        "M005",
+        "M005/S04",
+        "M005/S04/T02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-05-ASSESSMENT.md": {
+      "sha": "593393bea34039a7",
+      "entities": [
+        "M005",
+        "M005/S05"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-05-RESEARCH.md": {
+      "sha": "266a4018bdc44e40",
+      "entities": [
+        "M005",
+        "M005/S05"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-05-SUMMARY.md": {
+      "sha": "79c69aa8a2c3cc5a",
+      "entities": [
+        "M005",
+        "M005/S05"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/05-05-UAT.md": {
+      "sha": "500af3e076bd4236",
+      "entities": [
+        "M005",
+        "M005/S05"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S05-T01-SUMMARY.md": {
+      "sha": "2ac4dd2d80ed4e62",
+      "entities": [
+        "M005",
+        "M005/S05",
+        "M005/S05/T01"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S05-T02-SUMMARY.md": {
+      "sha": "9a50859811b0b335",
+      "entities": [
+        "M005",
+        "M005/S05",
+        "M005/S05/T02"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S05-T03-SUMMARY.md": {
+      "sha": "76d9e6c5b39d164c",
+      "entities": [
+        "M005",
+        "M005/S05",
+        "M005/S05/T03"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S05-T04-SUMMARY.md": {
+      "sha": "5966351244b2bda5",
+      "entities": [
+        "M005",
+        "M005/S05",
+        "M005/S05/T04"
+      ]
+    },
+    "phases/05-model-picker-context-gauge-copilot-quota/S05-T05-SUMMARY.md": {
+      "sha": "de5f0e74cdb97737",
+      "entities": [
+        "M005",
+        "M005/S05",
+        "M005/S05/T05"
+      ]
+    },
+    "phases/06-command-palette/06-ROADMAP.md": {
+      "sha": "db776fc95a051a70",
+      "entities": [
+        "M006"
+      ]
+    },
+    "phases/06-command-palette/06-01-PLAN.md": {
+      "sha": "1b6da4a9909725a1",
+      "entities": [
+        "M006",
+        "M006/S01"
       ]
     }
   },
