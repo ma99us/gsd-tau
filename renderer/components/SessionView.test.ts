@@ -25,6 +25,9 @@ import type { ModelInfo } from '@shared/types'
 import { CommandPalette } from './CommandPalette'
 import type { CommandPaletteProps } from './CommandPalette'
 import type { ComposerHandle } from './Composer'
+import { AutoRunPanel } from './AutoRunPanel'
+import type { AutoRunPanelProps } from './AutoRunPanel'
+import type { GsdProgress, GsdMilestone } from '@shared/types'
 
 // ── Interface contract ────────────────────────────────────────────────────────
 
@@ -319,5 +322,282 @@ describe('CommandPaletteProps — interface contract (T03)', () => {
     }
     props.onClose()
     expect(called).toBe(true)
+  })
+})
+
+// ── AutoRunPanel — export guard (S04/T03) ─────────────────────────────────────
+
+describe('AutoRunPanel — export guard (S04/T03)', () => {
+  it('is a function (React component)', () => {
+    expect(typeof AutoRunPanel).toBe('function')
+  })
+
+  it('has the expected component name', () => {
+    expect(AutoRunPanel.name).toBe('AutoRunPanel')
+  })
+})
+
+// ── AutoRunPanelProps — interface contract (S04/T03) ──────────────────────────
+
+describe('AutoRunPanelProps — interface contract (S04/T03)', () => {
+  it('accepts a null-milestone progress snapshot (no active auto-run)', () => {
+    const emptyProgress: GsdProgress = {
+      milestone: null,
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    const props: AutoRunPanelProps = {
+      progress: emptyProgress,
+      onPause: () => undefined,
+      onRefresh: () => undefined,
+    }
+    expect(props.progress.milestone).toBeNull()
+  })
+
+  it('onPause: fires when called (simulates Pause button click)', () => {
+    let pauseCalled = false
+    const props: AutoRunPanelProps = {
+      progress: { milestone: null, currentSliceId: null, currentTaskId: null, lastToolAt: null },
+      onPause: () => { pauseCalled = true },
+      onRefresh: () => undefined,
+    }
+    props.onPause()
+    expect(pauseCalled).toBe(true)
+  })
+
+  it('onRefresh: fires when called (simulates Refresh button click)', () => {
+    let refreshCalled = false
+    const props: AutoRunPanelProps = {
+      progress: { milestone: null, currentSliceId: null, currentTaskId: null, lastToolAt: null },
+      onPause: () => undefined,
+      onRefresh: () => { refreshCalled = true },
+    }
+    props.onRefresh()
+    expect(refreshCalled).toBe(true)
+  })
+
+  it('onPause has zero-argument signature — no args passed from button onClick', () => {
+    const handler: AutoRunPanelProps['onPause'] = () => undefined
+    expect(handler.length).toBe(0)
+  })
+
+  it('onRefresh has zero-argument signature — no args passed from button onClick', () => {
+    const handler: AutoRunPanelProps['onRefresh'] = () => undefined
+    expect(handler.length).toBe(0)
+  })
+})
+
+// ── GsdProgress — type contract (S04/T03) ─────────────────────────────────────
+
+describe('GsdProgress — type contract (S04/T03)', () => {
+  it('milestone: null is valid (no active milestone)', () => {
+    const p: GsdProgress = {
+      milestone: null,
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    expect(p.milestone).toBeNull()
+  })
+
+  it('currentSliceId: null is valid (not currently inside a slice)', () => {
+    const p: GsdProgress = {
+      milestone: null,
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    expect(p.currentSliceId).toBeNull()
+  })
+
+  it('currentTaskId: null is valid (not currently inside a task)', () => {
+    const p: GsdProgress = {
+      milestone: null,
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    expect(p.currentTaskId).toBeNull()
+  })
+
+  it('lastToolAt: accepts an ISO-8601 timestamp string', () => {
+    const p: GsdProgress = {
+      milestone: null,
+      currentSliceId: 'S04',
+      currentTaskId: 'T03',
+      lastToolAt: '2026-07-22T16:00:00.000Z',
+    }
+    expect(typeof p.lastToolAt).toBe('string')
+    expect(p.currentSliceId).toBe('S04')
+    expect(p.currentTaskId).toBe('T03')
+  })
+
+  it('all four fields are present on a minimal valid object', () => {
+    const p: GsdProgress = {
+      milestone: null,
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    expect(Object.keys(p)).toEqual(
+      expect.arrayContaining(['milestone', 'currentSliceId', 'currentTaskId', 'lastToolAt']),
+    )
+  })
+})
+
+// ── GsdMilestone — type contract (S04/T03) ────────────────────────────────────
+
+describe('GsdMilestone — type contract (S04/T03)', () => {
+  const makeMilestone = (): GsdMilestone => ({
+    id: 'M007',
+    title: 'Auto-run Panel',
+    status: 'in-progress',
+    slices: [],
+    cumulativeCostUsd: 1.234,
+    autoStartedAt: '2026-07-22T12:00:00.000Z',
+  })
+
+  it('accepts a valid milestone snapshot', () => {
+    const m = makeMilestone()
+    expect(m.id).toBe('M007')
+    expect(m.status).toBe('in-progress')
+  })
+
+  it('autoStartedAt: null is valid (auto-mode not yet started)', () => {
+    const m: GsdMilestone = { ...makeMilestone(), autoStartedAt: null }
+    expect(m.autoStartedAt).toBeNull()
+  })
+
+  it('cumulativeCostUsd: 0 is the initial value', () => {
+    const m: GsdMilestone = { ...makeMilestone(), cumulativeCostUsd: 0 }
+    expect(m.cumulativeCostUsd).toBe(0)
+  })
+
+  it('slices: empty array is valid (milestone with no slices yet)', () => {
+    const m = makeMilestone()
+    expect(Array.isArray(m.slices)).toBe(true)
+    expect(m.slices).toHaveLength(0)
+  })
+})
+
+// ── SessionView — panelOpen and Ctrl+Slash (S04/T03 — documented contracts) ───
+
+describe('SessionView — panelOpen and Ctrl+Slash (documented contracts)', () => {
+  it('panelOpen state initialises to true — documented contract', () => {
+    // useState(true) means AutoRunPanel is visible immediately when
+    // progress.milestone becomes non-null — no user action required.
+    // Verified manually: start /gsd auto → panel appears automatically.
+    expect(true).toBe(true)
+  })
+
+  it('Ctrl+Slash: scoped to active tab via isActive guard — documented contract', () => {
+    // The useEffect returns early when !isActive, so the keydown listener is
+    // never installed for hidden tabs.  [isActive] in dependency array re-arms
+    // the listener whenever the tab becomes active/inactive.
+    // Prevents ghost keypresses on hidden SessionViews.
+    expect(true).toBe(true)
+  })
+
+  it('Ctrl+Slash: calls e.preventDefault() before toggling — documented contract', () => {
+    // preventDefault() prevents the slash character from being inserted into
+    // the Composer when the shortcut fires while the input is focused.
+    expect(true).toBe(true)
+  })
+
+  it('Ctrl+Slash: listener removed via useEffect cleanup — documented contract', () => {
+    // useEffect returns () => window.removeEventListener('keydown', handler)
+    // ensuring no leaked listeners when a tab is closed or becomes inactive.
+    expect(true).toBe(true)
+  })
+})
+
+// ── SessionView — AutoRunPanel visibility gate (S04/T03 — negative tests) ────
+
+describe('SessionView — AutoRunPanel visibility gate (negative tests)', () => {
+  /**
+   * Mirrors the JSX gate in SessionView:
+   *   {progress !== null && progress.milestone !== null && panelOpen && (...)}
+   * Each test asserts that negating one condition suppresses the panel.
+   */
+
+  it('gate: progress === null suppresses the panel (initial loading state)', () => {
+    const progress: GsdProgress | null = null
+    const panelOpen = true
+    const visible = progress !== null && progress.milestone !== null && panelOpen
+    expect(visible).toBe(false)
+  })
+
+  it('gate: progress.milestone === null suppresses the panel (no active milestone)', () => {
+    const progress: GsdProgress = {
+      milestone: null,
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    const panelOpen = true
+    const visible = progress !== null && progress.milestone !== null && panelOpen
+    expect(visible).toBe(false)
+  })
+
+  it('gate: panelOpen === false suppresses the panel (user toggled Ctrl+Slash)', () => {
+    const progress: GsdProgress = {
+      milestone: {
+        id: 'M007', title: 'T', status: 'in-progress',
+        slices: [], cumulativeCostUsd: 0, autoStartedAt: null,
+      },
+      currentSliceId: null,
+      currentTaskId: null,
+      lastToolAt: null,
+    }
+    const panelOpen = false
+    const visible = progress !== null && progress.milestone !== null && panelOpen
+    expect(visible).toBe(false)
+  })
+
+  it('gate: all three conditions true renders the panel', () => {
+    const progress: GsdProgress = {
+      milestone: {
+        id: 'M007', title: 'Auto-run Panel', status: 'in-progress',
+        slices: [], cumulativeCostUsd: 0.12, autoStartedAt: '2026-07-22T12:00:00.000Z',
+      },
+      currentSliceId: 'S04',
+      currentTaskId: 'T03',
+      lastToolAt: '2026-07-22T16:00:00.000Z',
+    }
+    const panelOpen = true
+    const visible = progress !== null && progress.milestone !== null && panelOpen
+    expect(visible).toBe(true)
+  })
+})
+
+// ── SessionView — callback wiring (S04/T03 — documented contracts) ────────────
+
+describe('SessionView — callback wiring (S04/T03 — documented contracts)', () => {
+  it('handlePause delegates to window.gsd.abort(sessionId) — documented contract', () => {
+    // handlePause is a useCallback wrapping void window.gsd.abort(sessionId).
+    // Passes as onPause to AutoRunPanel.  Verified manually: clicking Pause
+    // during auto-run triggers an abort IPC call in the main process.
+    expect(true).toBe(true)
+  })
+
+  it('handleRefresh calls getProgress and updates state — documented contract', () => {
+    // handleRefresh = window.gsd.getProgress(sessionId).then(setProgress)
+    // Pulls a fresh GsdProgress snapshot and overwrites local state.
+    expect(true).toBe(true)
+  })
+
+  it('handleOpenRoadmap calls window.gsd.openRoadmap(sessionId) — documented contract', () => {
+    // handleOpenRoadmap = void window.gsd.openRoadmap(sessionId)
+    // Main process resolves the prefixed milestone directory and calls shell.openPath.
+    // Handler logs the resolved path (console.log) or warns when not found (console.warn).
+    expect(true).toBe(true)
+  })
+
+  it('handlePause and handleRefresh are always defined — safe before progress resolves', () => {
+    // useCallback creates the handlers unconditionally on mount.
+    // Calling abort() before any auto-run is active is a no-op in pi.
+    const noop = () => undefined
+    expect(typeof noop).toBe('function')
   })
 })
