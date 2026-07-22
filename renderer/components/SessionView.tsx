@@ -52,6 +52,7 @@ import { ConfirmModal } from './modals/ConfirmModal'
 import { InputModal } from './modals/InputModal'
 import { EditorModal } from './modals/EditorModal'
 import { FallbackModal } from './modals/FallbackModal'
+import { AutoRunPanel } from './AutoRunPanel'
 import { MissingSessionBanner } from './MissingSessionBanner'
 import { useSessionsStore } from '../state/sessions-store'
 import { turnsReducer } from '../hooks/turnsReducer'
@@ -61,6 +62,7 @@ import type {
   SessionEvent,
   RpcExtensionUIRequest,
   UiResponseInput,
+  GsdProgress,
 } from '../../shared/types'
 import type { StatusBarState } from './StatusBar'
 import type { ToastEntry } from './InlineToast'
@@ -120,6 +122,10 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
 
   // ── Modal blocking queue ───────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalQueue>([])
+
+  // ── Auto-run progress state ─────────────────────────────────────────────────
+  const [progress, setProgress] = useState<GsdProgress | null>(null)
+  const [panelOpen, setPanelOpen] = useState(true)
 
   // ── Editor prefill buffer (set_editor_text → consumed by EditorModal) ─────
   const editorPrefillRef = useRef<string | null>(null)
@@ -241,6 +247,29 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
     }
   }
 
+  // ── Initial progress fetch ─────────────────────────────────────────────────
+  useEffect(() => {
+    void window.gsd.getProgress(sessionId).then(setProgress)
+  }, [sessionId])
+
+  // ── Live progress updates ─────────────────────────────────────────────────
+  useEffect(() => {
+    return window.gsd.onProgressUpdate(sessionId, setProgress)
+  }, [sessionId])
+
+  // ── Ctrl+Slash: toggle auto-run panel (scoped to active tab) ─────────────
+  useEffect(() => {
+    if (!isActive) return
+    const handler = (e: KeyboardEvent): void => {
+      if (e.ctrlKey && e.key === '/') {
+        e.preventDefault()
+        setPanelOpen((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isActive])
+
   // ── Subscribe to pi event stream ───────────────────────────────────────────
   useEffect(() => {
     const unsub = window.gsd.onEvent(sessionId, (ev) => {
@@ -316,6 +345,18 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
   }, [sessionId])
 
   // ── Actions ────────────────────────────────────────────────────────────────
+
+  const handlePause = useCallback(() => {
+    void window.gsd.abort(sessionId)
+  }, [sessionId])
+
+  const handleRefresh = useCallback(() => {
+    void window.gsd.getProgress(sessionId).then(setProgress)
+  }, [sessionId])
+
+  const handleOpenRoadmap = useCallback(() => {
+    void window.gsd.openRoadmap(sessionId)
+  }, [sessionId])
 
   const send = useCallback(
     async (text: string): Promise<void> => {
@@ -413,6 +454,17 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
 
       {/* Status bar — non-modal setStatus / setWidget / setTitle */}
       <StatusBar {...statusBarState} />
+
+      {/* Auto-run panel — visible when a milestone is active and panel is open */}
+      {progress !== null && progress.milestone !== null && panelOpen && (
+        <div className="shrink-0 p-2">
+          <AutoRunPanel
+            progress={progress}
+            onPause={handlePause}
+            onRefresh={handleRefresh}
+          />
+        </div>
+      )}
 
       {/* Turn history fills remaining space */}
       <TurnList turns={turns} />
