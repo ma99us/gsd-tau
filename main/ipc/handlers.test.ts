@@ -30,8 +30,19 @@ vi.mock('node:fs', () => ({
   readdirSync: vi.fn(),
 }))
 
+vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(),
+}))
+
+vi.mock('../session/progress-reconciler', () => ({
+  reconcileProgress: vi.fn(),
+  parseRoadmapCheckboxes: vi.fn(),
+}))
+
 import { ipcMain, webContents as electronWc, shell } from 'electron'
 import { readdirSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { reconcileProgress } from '../session/progress-reconciler'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -1508,5 +1519,138 @@ describe('quota IPC handlers', () => {
     await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
     mockHandle.emit('event', { type: 'agent_start' })
     expect(mockQuotaService.onAgentEnd).not.toHaveBeenCalled()
+  })
+})
+
+// ── Path B open-time seeding ──────────────────────────────────────────────────
+
+describe('Path B open-time seeding', () => {
+  let capturedHandlers: Map<string, IpcHandler>
+  let mockHandle: MockHandle
+  let mockWcList: Array<ReturnType<typeof makeMockWc>>
+  let manager: {
+    open: ReturnType<typeof vi.fn>
+    prompt: ReturnType<typeof vi.fn>
+    abort: ReturnType<typeof vi.fn>
+    get: ReturnType<typeof vi.fn>
+    close: ReturnType<typeof vi.fn>
+    registerPreShutdownHook: ReturnType<typeof vi.fn>
+    list: ReturnType<typeof vi.fn>
+    rename: ReturnType<typeof vi.fn>
+    resume: ReturnType<typeof vi.fn>
+    getHistorySessionFile: ReturnType<typeof vi.fn>
+    updateSessionFile: ReturnType<typeof vi.fn>
+    getRpcState: ReturnType<typeof vi.fn>
+    getSessionStats: ReturnType<typeof vi.fn>
+    compact: ReturnType<typeof vi.fn>
+    listMissingPaths: ReturnType<typeof vi.fn>
+    removeMissingPath: ReturnType<typeof vi.fn>
+    getAvailableModels: ReturnType<typeof vi.fn>
+    setModel: ReturnType<typeof vi.fn>
+  }
+  let cleanup: () => void
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+
+    capturedHandlers = new Map()
+    mockHandle = new MockHandle()
+    mockWcList = [makeMockWc()]
+
+    const ipcMock = ipcMain as unknown as IpcMock
+    ipcMock.handle.mockImplementation((channel: string, fn: IpcHandler) => {
+      capturedHandlers.set(channel, fn)
+    })
+    ipcMock.removeHandler.mockImplementation((channel: string) => {
+      capturedHandlers.delete(channel)
+    })
+    ;(electronWc as unknown as WcMock).getAllWebContents.mockReturnValue(mockWcList)
+
+    manager = {
+      open: vi.fn().mockResolvedValue(mockHandle),
+      prompt: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn(),
+      close: vi.fn().mockResolvedValue(undefined),
+      registerPreShutdownHook: vi.fn(),
+      list: vi.fn().mockReturnValue([]),
+      rename: vi.fn(),
+      resume: vi.fn().mockResolvedValue(undefined),
+      getHistorySessionFile: vi.fn().mockReturnValue(undefined),
+      updateSessionFile: vi.fn(),
+      getRpcState: vi.fn().mockResolvedValue(null),
+      getSessionStats: vi.fn().mockResolvedValue(null),
+      compact: vi.fn().mockResolvedValue(null),
+      listMissingPaths: vi.fn().mockReturnValue([]),
+      removeMissingPath: vi.fn(),
+      getAvailableModels: vi.fn().mockResolvedValue([]),
+      setModel: vi.fn().mockResolvedValue(undefined),
+    }
+
+    ;({ cleanup } = registerHandlers(manager as never))
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.clearAllMocks()
+  })
+
+  it('calls reconcileProgress with milestoneId parsed from STATE.md on project open', async () => {
+    vi.mocked(readFile).mockResolvedValue('Active Milestone: M001\n# State\n' as never)
+    vi.mocked(reconcileProgress).mockResolvedValue({
+      hasData: true,
+      sliceStatuses: new Map([['S01', 'complete' as const]]),
+    })
+
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/my/proj')
+    await vi.runAllTimersAsync()
+
+    expect(reconcileProgress).toHaveBeenCalledWith('/my/proj', 'M001')
+  })
+
+  it('applies reconciliation to progressTracker when reconcileProgress returns hasData true', async () => {
+    vi.mocked(readFile).mockResolvedValue('Active Milestone: M002\n' as never)
+    const sliceStatuses = new Map([
+      ['S01', 'complete' as const],
+      ['S02', 'pending' as const],
+    ])
+    vi.mocked(reconcileProgress).mockResolvedValue({ hasData: true, sliceStatuses })
+
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/my/proj')
+    await vi.runAllTimersAsync()
+
+    // reconcileProgress must have been called exactly once (the open-time seeding pass)
+    expect(reconcileProgress).toHaveBeenCalledOnce()
+    // GET_PROGRESS returns non-null, confirming the session entry is live and
+    // the progressTracker was not discarded by a seeding error
+    const progress = capturedHandlers.get(IPC.GET_PROGRESS)!(null, mockHandle.sessionId)
+    expect(progress).not.toBeNull()
+  })
+
+  it('does not call reconcileProgress when STATE.md has no Active Milestone line', async () => {
+    vi.mocked(readFile).mockResolvedValue(
+      '# State\nStatus: idle\nNo milestone here\n' as never,
+    )
+
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/my/proj')
+    await vi.runAllTimersAsync()
+
+    expect(reconcileProgress).not.toHaveBeenCalled()
+  })
+
+  it('opens session without error when STATE.md read throws ENOENT', async () => {
+    vi.mocked(readFile).mockRejectedValue(
+      Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' }),
+    )
+
+    const sessionId = await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/my/proj')
+    await vi.runAllTimersAsync()
+
+    // Session opened successfully despite the STATE.md read error
+    expect(sessionId).toBe(mockHandle.sessionId)
+    expect(manager.open).toHaveBeenCalledWith('/my/proj')
+    // reconcileProgress must NOT have been called — error was caught before it
+    expect(reconcileProgress).not.toHaveBeenCalled()
   })
 })

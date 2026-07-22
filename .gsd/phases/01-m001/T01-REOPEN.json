@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "milestoneId": "M001",
-  "sliceId": "S01",
-  "taskId": "T01",
-  "reason": "Incorrectly blocked: target file exists at main/ipc/handlers.ts (not src/main/ipc/handlers.ts). Audit can now proceed with the correct path.",
-  "createdAt": "2026-07-22T17:55:00.049Z"
-}

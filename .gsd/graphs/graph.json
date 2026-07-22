@@ -1,21 +1,21 @@
 {
   "nodes": [
     {
-      "id": "milestone:M007",
-      "label": "M007: Auto-run Panel",
+      "id": "milestone:M001",
+      "label": "M001: Auto-run Panel",
       "type": "milestone",
-      "description": "Active milestone: M007",
+      "description": "Active milestone: M001",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     },
     {
-      "id": "concept:phase:validating-milestone",
-      "label": "Phase: validating-milestone",
+      "id": "concept:phase:evaluating-gates",
+      "label": "Phase: evaluating-gates",
       "type": "concept",
       "confidence": "EXTRACTED",
       "sourceFile": "STATE.md"
     }
   ],
   "edges": [],
-  "builtAt": "2026-07-22T16:20:57.289Z"
+  "builtAt": "2026-07-22T18:05:07.726Z"
 }

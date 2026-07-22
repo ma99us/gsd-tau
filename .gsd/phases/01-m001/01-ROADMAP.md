@@ -11,7 +11,7 @@
 
 ## Slices
 
-- [ ] **S01: Verify and patch session-reattach Path B seeding** `risk:medium` `depends:[]`
+- [x] **S01: Verify and patch session-reattach Path B seeding** `risk:medium` `depends:[]`
   > After this: Run `pnpm test`; all tests pass. Read `doOpenProject` in handlers.ts and confirm a post-open reconcileProgress call exists (added or already present). Proof level: unit tests + code audit.
 
 - [ ] **S02: End-to-end integration and acceptance verification** `risk:low` `depends:[S01]`
