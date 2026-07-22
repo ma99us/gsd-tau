@@ -8,7 +8,7 @@ import { SessionManager } from './session/session-manager'
 import { RegistryStore } from './persistence/registry-store'
 import { registerHandlers, PUSH, parseOpenProjectArg } from './ipc/handlers'
 import { QuotaService } from './services/quota-service'
-import { showBlockerToast } from './os/notifications'
+import { showBlockerToast, showStoppedToast, showMilestoneCompleteToast } from './os/notifications'
 import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
 import { clampBoundsToDisplays } from './window/clamp-bounds'
 
@@ -331,6 +331,8 @@ if (!gotSingleInstanceLock) {
       sessionManager,
       undefined,
       showBlockerToast,
+      showStoppedToast,
+      showMilestoneCompleteToast,
       registryStore,
       () => _winId,
       quotaService,
