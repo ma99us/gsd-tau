@@ -12,7 +12,9 @@ import type {
 // Typed overloads so callers get full type-safety on on() / emit().
 declare interface ProgressTracker {
   on(event: 'updated', listener: (progress: GsdProgress) => void): this
+  on(event: 'milestone-complete', listener: (milestone: GsdMilestone) => void): this
   emit(event: 'updated', progress: GsdProgress): boolean
+  emit(event: 'milestone-complete', milestone: GsdMilestone): boolean
 }
 
 // ── ProgressTracker ─────────────────────────────────────────────────────────────
@@ -312,6 +314,11 @@ class ProgressTracker extends EventEmitter {
     m.status = 'complete'
     this._progress.currentSliceId = null
     this._progress.currentTaskId = null
+
+    // Emit a dedicated 'milestone-complete' event so handlers can react
+    // without inspecting every 'updated' emission for status changes.
+    // The payload is an independent deep copy — callers may hold it safely.
+    this.emit('milestone-complete', structuredClone(m))
   }
 
   private _skipSlice(a: Record<string, unknown>): void {

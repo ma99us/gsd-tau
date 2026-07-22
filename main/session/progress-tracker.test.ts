@@ -631,6 +631,90 @@ describe('ProgressTracker', () => {
     })
   })
 
+  // ── 'milestone-complete' event ─────────────────────────────────────────────────
+
+  describe("'milestone-complete' event", () => {
+    beforeEach(() => {
+      feed(tracker, 'gsd_plan_milestone', milestonePlan())
+    })
+
+    it('fires when gsd_complete_milestone matches the active milestone', () => {
+      const fired: import('../../shared/types').GsdMilestone[] = []
+      tracker.on('milestone-complete', (m) => fired.push(m))
+
+      feed(tracker, 'gsd_complete_milestone', {
+        milestoneId: 'M007', title: 'Auto-run panel', oneLiner: 'Done', narrative: '', verificationPassed: true,
+      })
+
+      expect(fired).toHaveLength(1)
+      expect(fired[0].id).toBe('M007')
+    })
+
+    it('emitted milestone has status complete', () => {
+      let captured: import('../../shared/types').GsdMilestone | null = null
+      tracker.on('milestone-complete', (m) => { captured = m })
+
+      feed(tracker, 'gsd_complete_milestone', {
+        milestoneId: 'M007', title: '', oneLiner: '', narrative: '', verificationPassed: true,
+      })
+
+      expect(captured).not.toBeNull()
+      expect(captured!.status).toBe('complete')
+    })
+
+    it('does not fire when milestoneId does not match', () => {
+      const fired: import('../../shared/types').GsdMilestone[] = []
+      tracker.on('milestone-complete', (m) => fired.push(m))
+
+      feed(tracker, 'gsd_complete_milestone', {
+        milestoneId: 'M_WRONG', title: '', oneLiner: '', narrative: '', verificationPassed: true,
+      })
+
+      expect(fired).toHaveLength(0)
+    })
+
+    it('does not fire when no milestone is active', () => {
+      const fresh = new ProgressTracker()
+      const fired: import('../../shared/types').GsdMilestone[] = []
+      fresh.on('milestone-complete', (m) => fired.push(m))
+
+      feed(fresh, 'gsd_complete_milestone', {
+        milestoneId: 'M007', title: '', oneLiner: '', narrative: '', verificationPassed: true,
+      })
+
+      expect(fired).toHaveLength(0)
+    })
+
+    it('emitted payload is an independent deep copy — mutating it does not affect tracker', () => {
+      let captured: import('../../shared/types').GsdMilestone | null = null
+      tracker.on('milestone-complete', (m) => { captured = m })
+
+      feed(tracker, 'gsd_complete_milestone', {
+        milestoneId: 'M007', title: '', oneLiner: '', narrative: '', verificationPassed: true,
+      })
+
+      expect(captured).not.toBeNull()
+      captured!.id = 'MUTATED'
+
+      // The tracker's own snapshot is unaffected.
+      expect(tracker.snapshot().milestone!.id).toBe('M007')
+    })
+
+    it('still emits updated in addition to milestone-complete', () => {
+      const updatedFired: GsdProgress[] = []
+      const milestoneFired: import('../../shared/types').GsdMilestone[] = []
+      tracker.on('updated', (p) => updatedFired.push(p))
+      tracker.on('milestone-complete', (m) => milestoneFired.push(m))
+
+      feed(tracker, 'gsd_complete_milestone', {
+        milestoneId: 'M007', title: '', oneLiner: '', narrative: '', verificationPassed: true,
+      })
+
+      expect(updatedFired.length).toBeGreaterThanOrEqual(1)
+      expect(milestoneFired).toHaveLength(1)
+    })
+  })
+
   // ── lastToolAt ────────────────────────────────────────────────────────────────
 
   describe('lastToolAt', () => {
