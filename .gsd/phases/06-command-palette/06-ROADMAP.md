@@ -24,7 +24,7 @@
 - [x] **S03: CommandPalette overlay component** `risk:medium` `depends:[S01,S02]`
   > After this: Storybook/vitest-component: open palette, type 'comp', 'Compact context' floats to top, Enter fires execute(), palette closes.
 
-- [ ] **S04: Keyboard shortcut wiring and palette integration** `risk:low` `depends:[S03]`
+- [x] **S04: Keyboard shortcut wiring and palette integration** `risk:low` `depends:[S03]`
   > After this: In the running app: Ctrl+Shift+P opens palette; Ctrl+K moves focus to composer textarea; Ctrl+. triggers the model picker dropdown open state.
 
 - [ ] **S05: Pi slash commands in palette and regression check** `risk:medium` `depends:[S04]`
