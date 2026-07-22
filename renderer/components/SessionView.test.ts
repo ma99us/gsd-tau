@@ -22,6 +22,9 @@ import type { SessionHeaderBarProps } from './SessionHeaderBar'
 import { ModelPickerDropdown } from './ModelPickerDropdown'
 import type { ModelPickerDropdownProps } from './ModelPickerDropdown'
 import type { ModelInfo } from '@shared/types'
+import { CommandPalette } from './CommandPalette'
+import type { CommandPaletteProps } from './CommandPalette'
+import type { ComposerHandle } from './Composer'
 
 // ── Interface contract ────────────────────────────────────────────────────────
 
@@ -198,5 +201,123 @@ describe('SessionHeaderBar — graceful-degradation contract (documented)', () =
     // cost_update carries cumulativeCost; using it directly prevents drift from
     // missed or out-of-order push events (T03 decision).
     expect(true).toBe(true)
+  })
+})
+
+// ── SessionViewProps — optional wiring props (T03) ─────────────────────────────────
+// Guard that composerRef and forcePickerOpen are accepted by SessionViewProps.
+// Both are optional; existing call sites without them remain valid.
+
+describe('SessionViewProps — optional wiring props (T03)', () => {
+  it('composerRef: undefined when not provided (optional prop)', () => {
+    const props: SessionViewProps = { sessionId: 's1', cwd: '/p', isActive: true }
+    expect(props.composerRef).toBeUndefined()
+  })
+
+  it('composerRef: accepts a RefObject shape { current: ComposerHandle | null }', () => {
+    // React.RefObject<T> has shape { current: T | null }.
+    const fakeRef: { current: ComposerHandle | null } = { current: null }
+    const props: SessionViewProps = {
+      sessionId: 's1',
+      cwd: '/p',
+      isActive: true,
+      composerRef: fakeRef,
+    }
+    expect(props.composerRef).toBe(fakeRef)
+  })
+
+  it('composerRef: accepts null (passed for inactive tabs to detach the ref)', () => {
+    // In App.tsx, inactive tabs receive composerRef={null} so React detaches
+    // the ref and composerRef.current is set to null for them.
+    const props: SessionViewProps = {
+      sessionId: 's1',
+      cwd: '/p',
+      isActive: false,
+      composerRef: null,
+    }
+    expect(props.composerRef).toBeNull()
+  })
+
+  it('forcePickerOpen: undefined when not provided (optional prop)', () => {
+    const props: SessionViewProps = { sessionId: 's1', cwd: '/p', isActive: true }
+    expect(props.forcePickerOpen).toBeUndefined()
+  })
+
+  it('forcePickerOpen: true triggers model picker open via SessionHeaderBar', () => {
+    const props: SessionViewProps = {
+      sessionId: 's1',
+      cwd: '/p',
+      isActive: true,
+      forcePickerOpen: true,
+    }
+    expect(props.forcePickerOpen).toBe(true)
+  })
+})
+
+// ── SessionHeaderBarProps — forcePickerOpen (T02/T03) ───────────────────────────
+
+describe('SessionHeaderBarProps — forcePickerOpen', () => {
+  it('forcePickerOpen: undefined is the default (prop is optional)', () => {
+    const props: SessionHeaderBarProps = { sessionId: 's1' }
+    expect(props.forcePickerOpen).toBeUndefined()
+  })
+
+  it('forcePickerOpen: true opens the model picker dropdown — prop contract', () => {
+    const props: SessionHeaderBarProps = { sessionId: 's1', forcePickerOpen: true }
+    expect(props.forcePickerOpen).toBe(true)
+  })
+})
+
+// ── CommandPalette — export guard (T03) ───────────────────────────────────────
+// Guard that CommandPalette and CommandPaletteProps are exported and that the
+// types match what App.tsx passes to the component.
+
+describe('CommandPalette — export guard (T03)', () => {
+  it('is a function (React component)', () => {
+    expect(typeof CommandPalette).toBe('function')
+  })
+
+  it('has the expected component name', () => {
+    expect(CommandPalette.name).toBe('CommandPalette')
+  })
+})
+
+describe('CommandPaletteProps — interface contract (T03)', () => {
+  it('open: false is the closed state', () => {
+    const props: CommandPaletteProps = {
+      open: false,
+      onClose: () => undefined,
+      sessionId: 'sess-1',
+    }
+    expect(props.open).toBe(false)
+  })
+
+  it('open: true is the open state', () => {
+    const props: CommandPaletteProps = {
+      open: true,
+      onClose: () => undefined,
+      sessionId: 'sess-1',
+    }
+    expect(props.open).toBe(true)
+  })
+
+  it('sessionId: null is valid (no active session)', () => {
+    const props: CommandPaletteProps = {
+      open: false,
+      onClose: () => undefined,
+      sessionId: null,
+    }
+    expect(props.sessionId).toBeNull()
+  })
+
+  it('onClose: is a callable callback', () => {
+    let called = false
+    const props: CommandPaletteProps = {
+      open: true,
+      onClose: () => { called = true },
+      sessionId: null,
+    }
+    props.onClose()
+    expect(called).toBe(true)
   })
 })

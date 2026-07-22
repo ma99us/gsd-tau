@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSessionsStore } from './state/sessions-store'
 import { TabBar } from './components/TabBar'
 import { SessionView } from './components/SessionView'
 import { ClosingOverlay } from './components/ClosingOverlay'
 import type { TabEntry as TabBarEntry } from './components/TabBar'
+import type { ComposerHandle } from './components/Composer'
+import { CommandPalette } from './components/CommandPalette'
 
 // ── Recent sessions persistence ───────────────────────────────────────────────
 
@@ -65,6 +67,22 @@ function App(): JSX.Element {
       ? `Closing ${closingTabName}…`
       : null
 
+  // ── Keyboard-shortcut wiring state ────────────────────────────────────────
+  /** True while the command palette overlay is visible. */
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  /**
+   * When true, tells the active SessionHeaderBar to open the model picker.
+   * Reset to false after one tick so subsequent Ctrl+. presses can re-trigger
+   * (a stable `true` value won't re-fire the SessionHeaderBar useEffect).
+   */
+  const [forcePickerOpen, setForcePickerOpen] = useState(false)
+  /**
+   * Ref pointing to the active session's Composer imperative handle.
+   * Only forwarded to the currently-active SessionView; inactive views
+   * receive null so the ref always targets the visible composer.
+   */
+  const composerRef = useRef<ComposerHandle>(null)
+
   // ── Initialise the sessions store once on mount ───────────────────────────
   useEffect(() => {
     let cleanup: (() => void) | null = null
@@ -90,6 +108,35 @@ function App(): JSX.Element {
     window.addEventListener('focus', sync)
     return () => window.removeEventListener('focus', sync)
   }, [])
+
+  // ── Global keyboard shortcuts ─────────────────────────────────────────────
+  // Ctrl+Shift+P → open command palette
+  // Ctrl+K       → focus composer in the active session
+  // Ctrl+.       → open model picker in the active session
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        setPaletteOpen(true)
+        return
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        composerRef.current?.focus()
+        return
+      }
+      if (e.ctrlKey && e.key === '.') {
+        e.preventDefault()
+        setForcePickerOpen(true)
+        // Reset after SessionHeaderBar's useEffect fires so the same shortcut
+        // can re-trigger on subsequent keypresses (duplicate `true` won't
+        // re-fire the effect).
+        setTimeout(() => { setForcePickerOpen(false) }, 0)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => { window.removeEventListener('keydown', handleKeyDown) }
+  }, []) // composerRef is stable (useRef); setState setters are stable
 
   // ── Open project helper ───────────────────────────────────────────────────
 
@@ -273,9 +320,19 @@ function App(): JSX.Element {
             cwd={tab.cwd}
             isActive={id === activeTabId}
             isMissingPath={tab.isMissingPath}
+            composerRef={id === activeTabId ? composerRef : null}
+            forcePickerOpen={id === activeTabId ? forcePickerOpen : undefined}
           />
         )
       })}
+
+      {/* Command palette — Radix portal-renders to document.body; mounted at App
+          level so it is reachable regardless of which session is active. */}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => { setPaletteOpen(false) }}
+        sessionId={activeTabId}
+      />
     </div>
   )
 }

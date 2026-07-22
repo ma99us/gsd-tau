@@ -28,10 +28,11 @@ import {
   useRef,
   useCallback,
   useReducer,
+  type Ref,
 } from 'react'
 import { SessionHeaderBar } from './SessionHeaderBar'
 import { TurnList } from './TurnList'
-import { Composer } from './Composer'
+import { Composer, type ComposerHandle } from './Composer'
 import {
   StatusBar,
   applySetStatus,
@@ -89,11 +90,24 @@ export interface SessionViewProps {
    * banner, and the Composer is disabled.
    */
   isMissingPath?: boolean
+  /**
+   * Ref forwarded to the active Composer's imperative handle.
+   * Passed as `composerRef` only to the currently active tab (null for hidden
+   * tabs) so `composerRef.current` always points to the visible composer.
+   * Used by the Ctrl+K keyboard shortcut in App.tsx.
+   */
+  composerRef?: Ref<ComposerHandle>
+  /**
+   * When true, forces the model picker dropdown open via SessionHeaderBar.
+   * Set by the Ctrl+. handler in App.tsx. SessionHeaderBar opens the dropdown
+   * and Radix fires `onOpenChange(false)` to clear it when the user closes it.
+   */
+  forcePickerOpen?: boolean
 }
 
 // ── SessionView ───────────────────────────────────────────────────────────────
 
-export function SessionView({ sessionId, cwd, isActive, isMissingPath }: SessionViewProps): JSX.Element {
+export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerRef, forcePickerOpen }: SessionViewProps): JSX.Element {
   // ── Session state (from the global store — already subscribed) ─────────────
   const sessionState = useSessionsStore((s) => s.sessions[sessionId]?.state ?? 'Idle')
 
@@ -386,7 +400,7 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath }: Session
       </header>
 
       {/* Model chip + cost display — live RPC state and cost_update events */}
-      <SessionHeaderBar sessionId={sessionId} />
+      <SessionHeaderBar sessionId={sessionId} forcePickerOpen={forcePickerOpen} />
 
       {/* Missing-path banner replaces the stopped banner when the project dir is gone */}
       {isMissingPath ? (
@@ -405,6 +419,7 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath }: Session
 
       {/* Composer pinned to bottom */}
       <Composer
+        ref={composerRef}
         onSend={(text) => void send(text)}
         sessionId={sessionId}
         disabled={isWorking || isStopped || !!isMissingPath}
