@@ -21,7 +21,7 @@
 - [x] **S02: App command registry** `risk:low` `depends:[S01]`
   > After this: useAppCommands(sessionId) returns a typed array; 'new-session', 'open-project', 'close-tab', 'compact-context', 'copy-last-turn', 'show-tray', 'toggle-auto-run-panel' entries present.
 
-- [ ] **S03: CommandPalette overlay component** `risk:medium` `depends:[S01,S02]`
+- [x] **S03: CommandPalette overlay component** `risk:medium` `depends:[S01,S02]`
   > After this: Storybook/vitest-component: open palette, type 'comp', 'Compact context' floats to top, Enter fires execute(), palette closes.
 
 - [ ] **S04: Keyboard shortcut wiring and palette integration** `risk:low` `depends:[S03]`

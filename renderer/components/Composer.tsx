@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { SessionId, RpcSlashCommand, ModelInfo } from '../../shared/types'
 
@@ -20,7 +20,7 @@ const EMPTY_PICKER: SlashPicker = {
   selectedIdx: 0,
 }
 
-interface ComposerProps {
+export interface ComposerProps {
   onSend: (text: string) => void
   /** Session ID — needed to fetch available commands and models. */
   sessionId: SessionId | null
@@ -28,13 +28,25 @@ interface ComposerProps {
   disabled?: boolean
 }
 
+/**
+ * Imperative handle exposed to parent components via ref.
+ * Used by the Ctrl+K shortcut in SessionView to focus the textarea.
+ */
+export interface ComposerHandle {
+  /** Programmatically focuses the composer textarea. */
+  focus(): void
+}
+
 // ── Slash command routing ─────────────────────────────────────────────────────
 
 /**
  * Returns true for slash commands that must be routed to a dedicated RPC
  * method instead of being sent as a plain prompt.
+ *
+ * Exported for unit-testing only — callers within this module use the
+ * function directly; external code should not route model commands itself.
  */
-function isModelCommand(text: string): { match: true; query: string } | { match: false } {
+export function isModelCommand(text: string): { match: true; query: string } | { match: false } {
   const m = text.match(/^\/model(?:\s+(.*))?$/i)
   if (m) return { match: true, query: (m[1] ?? '').trim() }
   return { match: false }
@@ -104,9 +116,14 @@ function buildItems(picker: SlashPicker): PickerItem[] {
  * - On submit, "/model <id>" is routed to window.gsd.setModel() instead of prompt().
  * - All other "/…" text is forwarded to pi as a plain prompt (pi's session layer
  *   processes skills and extension commands).
+ *
+ * The component is wrapped in forwardRef so callers (e.g. SessionView) can
+ * programmatically focus the textarea via `composerRef.current?.focus()`,
+ * which is used by the Ctrl+K keyboard shortcut.
  */
-export function Composer({ onSend, sessionId, disabled = false }: ComposerProps): JSX.Element {
-  const ref = useRef<HTMLTextAreaElement>(null)
+export const Composer = forwardRef<ComposerHandle, ComposerProps>(
+  function Composer({ onSend, sessionId, disabled = false }, ref) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const pickerRef = useRef<HTMLUListElement>(null)
   const [picker, setPicker] = useState<SlashPicker>(EMPTY_PICKER)
   // Cache loaded data per session so we only fetch once.
@@ -120,6 +137,13 @@ export function Composer({ onSend, sessionId, disabled = false }: ComposerProps)
     cachedModels.current = []
     loaded.current = false
   }, [sessionId])
+
+  // ── Expose imperative focus() handle ───────────────────────────────────
+  useImperativeHandle(ref, () => ({
+    focus(): void {
+      textareaRef.current?.focus()
+    },
+  }), [])
 
   // ── Fetch commands + models (once, lazily on first "/") ───────────────────
   const ensureLoaded = useCallback(async (): Promise<void> => {
@@ -159,7 +183,7 @@ export function Composer({ onSend, sessionId, disabled = false }: ComposerProps)
 
   const selectItem = useCallback(
     (item: PickerItem): void => {
-      const el = ref.current
+      const el = textareaRef.current
       if (!el) return
       el.value = item.fillText + ' '
       el.style.height = 'auto'
@@ -172,7 +196,7 @@ export function Composer({ onSend, sessionId, disabled = false }: ComposerProps)
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const submit = useCallback(async (): Promise<void> => {
-    const el = ref.current
+    const el = textareaRef.current
     if (!el) return
     const text = el.value.trim()
     if (!text || disabled) return
@@ -216,7 +240,7 @@ export function Composer({ onSend, sessionId, disabled = false }: ComposerProps)
 
   // ── Input handler (drives picker open/close) ──────────────────────────────
   const handleInput = useCallback((): void => {
-    const el = ref.current
+    const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
@@ -323,7 +347,7 @@ export function Composer({ onSend, sessionId, disabled = false }: ComposerProps)
 
       <div className="flex items-end gap-2">
         <textarea
-          ref={ref}
+          ref={textareaRef}
           rows={1}
           disabled={disabled}
           placeholder={
@@ -361,4 +385,6 @@ export function Composer({ onSend, sessionId, disabled = false }: ComposerProps)
       </div>
     </div>
   )
-}
+})
+
+Composer.displayName = 'Composer'

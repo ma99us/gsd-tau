@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T01",
+  "unitId": "M006/S04/T01",
+  "timestamp": 1784724759549,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm vitest run renderer/components/Composer.test.ts",
+      "exitCode": 0,
+      "durationMs": 7587,
+      "verdict": "pass"
+    }
+  ]
+}
