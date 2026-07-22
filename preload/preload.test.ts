@@ -476,4 +476,24 @@ describe('createGsdApi', () => {
       }).not.toThrow()
     })
   })
+
+  // ── openRoadmap ──────────────────────────────────────────────────────────────
+
+  describe('openRoadmap', () => {
+    it('invokes the openRoadmap channel with sessionId', async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      await api.openRoadmap(SESSION_ID)
+      expect(mockInvoke).toHaveBeenCalledWith('openRoadmap', SESSION_ID)
+    })
+
+    it('resolves to void on success', async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      await expect(api.openRoadmap(SESSION_ID)).resolves.toBeUndefined()
+    })
+
+    it('propagates IPC rejection to the caller', async () => {
+      mockInvoke.mockRejectedValue(new Error('shell.openPath failed'))
+      await expect(api.openRoadmap(SESSION_ID)).rejects.toThrow('shell.openPath failed')
+    })
+  })
 })

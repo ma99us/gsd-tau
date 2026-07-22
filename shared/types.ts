@@ -188,6 +188,12 @@ export interface GsdApi {
    * @returns An unsubscribe function.  Calling it multiple times is safe.
    */
   onProgressUpdate(sessionId: SessionId, cb: (progress: GsdProgress) => void): Unsubscribe
+  /**
+   * Open the active milestone's ROADMAP.md in the OS default editor.
+   * Path resolution (prefixed milestone directory) happens in the main process.
+   * No-op with a warning when no active milestone or directory is not found.
+   */
+  openRoadmap(sessionId: SessionId): Promise<void>
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */

@@ -21,9 +21,17 @@ vi.mock('electron', () => ({
   webContents: {
     getAllWebContents: vi.fn(),
   },
+  shell: {
+    openPath: vi.fn(),
+  },
 }))
 
-import { ipcMain, webContents as electronWc } from 'electron'
+vi.mock('node:fs', () => ({
+  readdirSync: vi.fn(),
+}))
+
+import { ipcMain, webContents as electronWc, shell } from 'electron'
+import { readdirSync } from 'node:fs'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -134,9 +142,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 23 IPC channels', () => {
+    it('registers handlers for all 26 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(25)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(26)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
@@ -162,6 +170,8 @@ describe('registerHandlers', () => {
       expect(capturedHandlers.has(IPC.REFRESH_QUOTA)).toBe(true)
       expect(capturedHandlers.has(IPC.START_QUOTA_AUTH)).toBe(true)
       expect(capturedHandlers.has(IPC.DISCONNECT_QUOTA_AUTH)).toBe(true)
+      // Auto-run progress – open roadmap (T01):
+      expect(capturedHandlers.has(IPC.OPEN_ROADMAP)).toBe(true)
     })
   })
 

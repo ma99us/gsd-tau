@@ -68,6 +68,8 @@ const IPC = {
   // Auto-run progress
   GET_PROGRESS: 'getProgress',
   REFRESH_PROGRESS: 'refreshProgress',
+  /** Open the active milestone's ROADMAP.md in the OS default editor. */
+  OPEN_ROADMAP: 'openRoadmap',
 
   // Copilot quota
   GET_QUOTA: 'getQuota',
@@ -399,6 +401,14 @@ export function createGsdApi(): GsdApi {
         ipcRenderer.off(PUSH.PROGRESS_UPDATE, listener)
       }
     },
+
+    /**
+     * Open the active milestone's ROADMAP.md in the OS default editor.
+     * The main process resolves the prefixed milestone directory and calls shell.openPath.
+     * No-op with a warning when no active milestone or directory is not found.
+     */
+    openRoadmap: (sessionId: SessionId): Promise<void> =>
+      ipcRenderer.invoke(IPC.OPEN_ROADMAP, sessionId),
   }
 }
 

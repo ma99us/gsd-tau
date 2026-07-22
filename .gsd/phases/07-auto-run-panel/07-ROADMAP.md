@@ -21,7 +21,7 @@
 - [x] **S02: SessionHandle integration and Path B reconciliation** `risk:medium` `depends:[S01]`
   > After this: In the running app with a live auto session: open DevTools, start /gsd auto, observe window.gsd.onProgressUpdate callbacks firing; after execution_complete the reconciliation runs and the snapshot matches gsd_milestone_status output.
 
-- [ ] **S03: AutoRunPanel React component** `risk:low` `depends:[S01,S02]`
+- [x] **S03: AutoRunPanel React component** `risk:low` `depends:[S01,S02]`
   > After this: Storybook/vitest-component: render panel with a fixture GsdProgress tree; checkmark/play/circle/skip icons render correctly; replanned node shows replan marker; clicking Pause calls onPause(); clicking Refresh calls onRefresh().
 
 - [ ] **S04: SessionView integration, shortcut wiring, and panel visibility** `risk:low` `depends:[S02,S03]`

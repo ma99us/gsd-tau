@@ -1,6 +1,7 @@
-import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents } from 'electron'
+import { ipcMain, dialog, BrowserWindow, webContents as electronWebContents, shell } from 'electron'
 import type { WebContents } from 'electron'
-import { basename } from 'node:path'
+import { basename, join } from 'node:path'
+import { readdirSync } from 'node:fs'
 import type { SdkAgentEvent } from '@opengsd/rpc-client'
 import type { SessionId, SessionRecord, RpcExtensionUIRequest, UiResponseInput, MissingPathInfo, ThinkingLevel, QuotaSnapshot, GsdProgress } from '../../shared/types'
 import type { QuotaService } from '../services/quota-service'
@@ -85,6 +86,12 @@ export const IPC = {
    * the refreshed GsdProgress snapshot.  Returns null on unknown session.
    */
   REFRESH_PROGRESS: 'refreshProgress',
+  /**
+   * Open the active milestone's ROADMAP.md in the OS default editor.
+   * Resolves the prefixed milestone directory in the main process.
+   * No-op (logs a warning) when no active milestone or directory not found.
+   */
+  OPEN_ROADMAP: 'openRoadmap',
 
   // ---------------------------------------------------------------------------
   // Copilot quota
@@ -870,6 +877,68 @@ export function registerHandlers(
     },
   )
 
+  // ── openRoadmap ────────────────────────────────────────────────────────────────
+  //
+  // Resolves the ROADMAP.md path for the session's active milestone and opens
+  // it in the OS default editor.  Milestone directories use a numeric prefix
+  // (e.g. 'M007' → '07-auto-run-panel') so path resolution requires a
+  // directory scan rather than a direct path construction.
+  //
+  // Uses the null/warn pattern — no-op with console.warn on missing session,
+  // missing milestone, or unresolvable directory.  console.log when path is
+  // resolved (slice verification requirement).
+  ipcMain.handle(
+    IPC.OPEN_ROADMAP,
+    async (_event, sessionId: SessionId): Promise<void> => {
+      const entry = sessions.get(sessionId)
+      if (!entry) {
+        console.warn(`[handlers] openRoadmap: unknown session '${sessionId}'`)
+        return
+      }
+      const milestoneId = entry.progressTracker.snapshot().milestone?.id
+      if (!milestoneId) {
+        console.warn(
+          `[handlers] openRoadmap: no active milestone for session '${sessionId}'`,
+        )
+        return
+      }
+      // Milestone directories use a numeric prefix derived from the milestone ID
+      // (e.g. 'M007' → '07-auto-run-panel').  Parse the numeric portion and
+      // zero-pad to at least 2 digits for the directory prefix scan.
+      const num = parseInt(milestoneId.replace(/^M/i, ''), 10)
+      if (isNaN(num)) {
+        console.warn(
+          `[handlers] openRoadmap: cannot parse milestone number from '${milestoneId}'`,
+        )
+        return
+      }
+      const numericPrefix = String(num).padStart(2, '0')
+      const phasesDir = join(entry.cwd, '.gsd', 'phases')
+      let matchDir: string | undefined
+      try {
+        const dirEntries = readdirSync(phasesDir, { withFileTypes: true })
+        const match = dirEntries.find(
+          (d) => d.isDirectory() && d.name.startsWith(`${numericPrefix}-`),
+        )
+        if (match) matchDir = match.name
+      } catch {
+        console.warn(
+          `[handlers] openRoadmap: could not read phases directory: ${phasesDir}`,
+        )
+        return
+      }
+      if (!matchDir) {
+        console.warn(
+          `[handlers] openRoadmap: milestone directory not found for ${milestoneId} in ${phasesDir}`,
+        )
+        return
+      }
+      const roadmapPath = join(phasesDir, matchDir, 'ROADMAP.md')
+      console.log(`[handlers] openRoadmap: opening ${roadmapPath}`)
+      await shell.openPath(roadmapPath)
+    },
+  )
+
   // ── getQuota ──────────────────────────────────────────────────────────────────
   ipcMain.handle(IPC.GET_QUOTA, (): QuotaSnapshot | null => {
     return quotaService?.getLastSnapshot() ?? null
@@ -922,6 +991,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.COMPACT)
     ipcMain.removeHandler(IPC.GET_PROGRESS)
     ipcMain.removeHandler(IPC.REFRESH_PROGRESS)
+    ipcMain.removeHandler(IPC.OPEN_ROADMAP)
     ipcMain.removeHandler(IPC.GET_QUOTA)
     ipcMain.removeHandler(IPC.REFRESH_QUOTA)
     ipcMain.removeHandler(IPC.START_QUOTA_AUTH)
