@@ -182,12 +182,63 @@ export interface SessionSummary {
   wasAutoRunning: boolean
 }
 
-/** Current milestone/slice/task progress for a session. */
+// ---------------------------------------------------------------------------
+// Auto-run panel progress tree (M007/S01)
+// ---------------------------------------------------------------------------
+
+/**
+ * Status discriminant shared by milestones, slices, and tasks.
+ * JSON-serialisable (no enums) — safe for IPC transport.
+ */
+export type GsdNodeStatus = 'pending' | 'in-progress' | 'complete' | 'skipped'
+
+/** One task node within a slice. */
+export interface GsdTask {
+  /** Task ID (e.g. "T01"). */
+  id: string
+  title: string
+  status: GsdNodeStatus
+}
+
+/** One slice node within a milestone. */
+export interface GsdSlice {
+  /** Slice ID (e.g. "S01"). */
+  id: string
+  title: string
+  status: GsdNodeStatus
+  tasks: GsdTask[]
+  /** True when gsd_replan_slice was called for this slice. */
+  replanned: boolean
+  /** Optional human-readable note set during replan. */
+  replanNote?: string
+}
+
+/** One milestone node in the progress tree. */
+export interface GsdMilestone {
+  /** Milestone ID (e.g. "M007"). */
+  id: string
+  title: string
+  status: GsdNodeStatus
+  slices: GsdSlice[]
+  /** Accumulated cost in USD from cost_update events. */
+  cumulativeCostUsd: number
+  /** ISO-8601 timestamp of when auto-mode started this milestone. */
+  autoStartedAt: string | null
+}
+
+/**
+ * Root progress snapshot for a session's auto-run panel.
+ * JSON-serialisable — pushed from main to renderer over IPC (M007/S02).
+ * `null` milestone means no active milestone has been planned yet.
+ */
 export interface GsdProgress {
-  milestoneId: string | null
-  sliceId: string | null
-  taskId: string | null
-  phase: 'planning' | 'executing' | 'validating' | null
+  milestone: GsdMilestone | null
+  /** ID of the slice currently executing (null when not in a slice). */
+  currentSliceId: string | null
+  /** ID of the task currently executing (null when not in a task). */
+  currentTaskId: string | null
+  /** ISO-8601 timestamp of the most recent tool_use event received. */
+  lastToolAt: string | null
 }
 
 /**

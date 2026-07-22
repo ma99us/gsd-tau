@@ -8,3 +8,4 @@
 - ✅ **M004: Multi-project Tabs, Persistence, Resume** (`depends:[—]`)
 - ✅ **M005: Model Picker, Context Gauge, Copilot Quota** (`depends:[M004]`)
 - ✅ **M006: Command Palette** (`depends:[—]`)
+- 🔄 **M007: Auto-run Panel** (`depends:[—]`)
