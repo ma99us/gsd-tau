@@ -361,4 +361,34 @@ describe('buildAppCommands', () => {
       expect(gsd.closeSession).toHaveBeenLastCalledWith('sess-B')
     })
   })
+
+  // ── badge and description optional fields ─────────────────────────────────
+
+  describe('badge and description optional fields', () => {
+    it('built-in app commands have no badge field', () => {
+      const cmds = buildAppCommands(null)
+      for (const cmd of cmds) {
+        expect(cmd.badge).toBeUndefined()
+      }
+    })
+
+    it('built-in app commands have no description field', () => {
+      const cmds = buildAppCommands(null)
+      for (const cmd of cmds) {
+        expect(cmd.description).toBeUndefined()
+      }
+    })
+
+    it('AppCommand interface accepts badge and description when provided', () => {
+      const cmd: AppCommand = {
+        id: 'pi:/gsd',
+        label: '/gsd',
+        badge: 'skill',
+        description: 'Run a GSD skill',
+        execute: () => {},
+      }
+      expect(cmd.badge).toBe('skill')
+      expect(cmd.description).toBe('Run a GSD skill')
+    })
+  })
 })

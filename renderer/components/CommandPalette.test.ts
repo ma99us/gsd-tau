@@ -17,7 +17,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { filterAndSortCommands } from './CommandPalette'
-import { buildAppCommands } from '../hooks/useAppCommands'
+import { buildAppCommands, type AppCommand } from '../hooks/useAppCommands'
 
 // ── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -180,5 +180,76 @@ describe('filterAndSortCommands — edge cases', () => {
     expect(empty).toHaveLength(appCommands.length)
     // space query may return 0 or more — just check it doesn't throw
     expect(Array.isArray(space)).toBe(true)
+  })
+})
+
+// ── Pi commands / badge and description fields ────────────────────────────────
+
+describe('filterAndSortCommands — pi commands and badge/description fields', () => {
+  it('includes pi commands with badge and description in filtered results', () => {
+    const cmds: AppCommand[] = [
+      { id: 'pi:/gsd',  label: '/gsd',  badge: 'skill',    description: 'Run a GSD skill', execute: () => {} },
+      { id: 'pi:/help', label: '/help', badge: 'built-in', description: 'Show help',       execute: () => {} },
+    ]
+    const results = filterAndSortCommands('/gsd', cmds, [])
+    expect(results).toHaveLength(1)
+    expect(results[0].id).toBe('pi:/gsd')
+    expect(results[0].badge).toBe('skill')
+    expect(results[0].description).toBe('Run a GSD skill')
+  })
+
+  it('merges pi commands and app commands — both appear when query is empty', () => {
+    const piCmds: AppCommand[] = [
+      { id: 'pi:/gsd', label: '/gsd', badge: 'skill', description: 'Run a GSD skill', execute: () => {} },
+    ]
+    const allCmds = [...appCommands, ...piCmds]
+    const results = filterAndSortCommands('', allCmds, [])
+    expect(results).toHaveLength(allCmds.length)
+    const ids = results.map(c => c.id)
+    expect(ids).toContain('pi:/gsd')
+    expect(ids).toContain('compact-context')
+  })
+
+  it('pi commands appear in fuzzy search results when query matches', () => {
+    const piCmds: AppCommand[] = [
+      { id: 'pi:/gsd', label: '/gsd', badge: 'skill', description: 'Run a GSD skill', execute: () => {} },
+    ]
+    const allCmds = [...appCommands, ...piCmds]
+    const results = filterAndSortCommands('gsd', allCmds, [])
+    expect(results.some(c => c.id === 'pi:/gsd')).toBe(true)
+  })
+
+  it('badge field is preserved through filterAndSortCommands', () => {
+    const cmds: AppCommand[] = [
+      { id: 'pi:/skill-cmd', label: '/skill-cmd', badge: 'skill', execute: () => {} },
+    ]
+    const results = filterAndSortCommands('', cmds, [])
+    expect(results[0].badge).toBe('skill')
+  })
+
+  it('description field is preserved through filterAndSortCommands', () => {
+    const cmds: AppCommand[] = [
+      { id: 'pi:/desc-cmd', label: '/desc-cmd', description: 'A helpful description', execute: () => {} },
+    ]
+    const results = filterAndSortCommands('', cmds, [])
+    expect(results[0].description).toBe('A helpful description')
+  })
+
+  it('app commands have no badge or description (optional fields absent)', () => {
+    const results = filterAndSortCommands('', appCommands, [])
+    for (const cmd of results) {
+      expect(cmd.badge).toBeUndefined()
+      expect(cmd.description).toBeUndefined()
+    }
+  })
+
+  it('pi commands in MRU float above other commands for a non-empty query', () => {
+    const piCmds: AppCommand[] = [
+      { id: 'pi:/gsd', label: '/gsd', badge: 'skill', execute: () => {} },
+    ]
+    const allCmds = [...appCommands, ...piCmds]
+    // 'g' matches '/gsd' (pi) — with it in MRU, it should win
+    const results = filterAndSortCommands('g', allCmds, ['pi:/gsd'])
+    expect(results[0].id).toBe('pi:/gsd')
   })
 })

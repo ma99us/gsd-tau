@@ -3,9 +3,10 @@
  * command palette.
  *
  * Composes:
- *   - fuzzyScore  (renderer/hooks/fuzzyMatch.ts)  — substring scoring
- *   - useMRU      (renderer/hooks/useMRU.ts)       — recently-used ordering
+ *   - fuzzyScore  (renderer/hooks/fuzzyMatch.ts)       — substring scoring
+ *   - useMRU      (renderer/hooks/useMRU.ts)            — recently-used ordering
  *   - useAppCommands (renderer/hooks/useAppCommands.ts) — full command registry
+ *   - usePiCommands  (renderer/hooks/usePiCommands.ts)  — pi slash commands
  *   - @radix-ui/react-dialog — accessible focus trap, Escape, aria-modal,
  *                               portal rendering
  *
@@ -14,16 +15,23 @@
  *   CommandPalette        — React component (consumed by S04 keyboard wiring)
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { ChangeEvent, KeyboardEvent } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { fuzzyScore } from '../hooks/fuzzyMatch'
 import { useAppCommands } from '../hooks/useAppCommands'
+import { usePiCommands } from '../hooks/usePiCommands'
 import { useMRU } from '../hooks/useMRU'
 import type { AppCommand } from '../hooks/useAppCommands'
-import type { SessionId } from '../../shared/types'
+import type { GsdApi, SessionId } from '../../shared/types'
 
 export type { AppCommand }
+
+// ── GSD API accessor ──────────────────────────────────────────────────────────
+// Matches the globalThis pattern in useAppCommands.ts so vi.stubGlobal works.
+function gsd(): GsdApi {
+  return (globalThis as unknown as { gsd: GsdApi }).gsd
+}
 
 // ── Pure helper — exported for node-env tests ─────────────────────────────────
 
@@ -115,9 +123,34 @@ export function CommandPalette({
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const commands = useAppCommands(sessionId, getLastTurnText)
+  const piCommands = usePiCommands(sessionId)
   const [mruIds, record] = useMRU('gsd-tau:mru-commands')
 
-  const filtered = filterAndSortCommands(query, commands, mruIds)
+  // Trigger pi-command fetch when the palette opens (respects 60 s TTL cache).
+  useEffect(() => {
+    if (open) piCommands.fetch()
+    // piCommands.fetch is stable within the same sessionId — dep excluded intentionally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // Map pi RPC commands to the AppCommand shape for unified filtering.
+  const piAppCommands: AppCommand[] = piCommands.commands.map(cmd => {
+    // RpcSlashCommand is opaque from the contracts package — cast to access
+    // runtime fields (name, description, type) without bundling the contracts.
+    const c = cmd as unknown as { name: string; description?: string; type?: string }
+    return {
+      id: `pi:${c.name}`,
+      label: c.name,
+      badge: c.type,
+      description: c.description,
+      execute: async () => {
+        if (sessionId != null) await gsd().prompt(sessionId, c.name)
+      },
+    }
+  })
+
+  const allCommands = [...commands, ...piAppCommands]
+  const filtered = filterAndSortCommands(query, allCommands, mruIds)
 
   // Radix calls this with false on Escape and overlay click.
   function handleOpenChange(nextOpen: boolean): void {
@@ -217,7 +250,17 @@ export function CommandPalette({
                   onClick={() => handleItemClick(cmd)}
                   data-testid={`palette-item-${cmd.id}`}
                 >
-                  {cmd.label}
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{cmd.label}</span>
+                    {cmd.badge != null && (
+                      <span className="shrink-0 rounded bg-neutral-600 px-1.5 py-0.5 text-xs text-neutral-300">
+                        {cmd.badge}
+                      </span>
+                    )}
+                  </div>
+                  {cmd.description != null && (
+                    <p className="mt-0.5 truncate text-xs text-neutral-500">{cmd.description}</p>
+                  )}
                 </li>
               ))
             )}

@@ -33,6 +33,16 @@ export interface AppCommand {
    * show-tray, toggle-auto-run-panel).
    */
   sessionId?: SessionId
+  /**
+   * Source badge displayed in the palette list (e.g. 'skill', 'built-in').
+   * Absent on built-in app commands; set on pi slash commands.
+   */
+  badge?: string
+  /**
+   * Optional description shown below the command label in the palette list.
+   * Absent on built-in app commands; set on pi slash commands.
+   */
+  description?: string
   /** Invoke the command. May return a Promise; errors propagate to the caller. */
   execute: () => void | Promise<void>
 }
