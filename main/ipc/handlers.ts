@@ -425,11 +425,13 @@ export function registerHandlers(
           }
         }
 
-        // Forward tool_use events to ProgressTracker (Path A — live tracking).
-        if (ev.type === 'tool_use') {
-          const toolEv = ev as { type: string; toolName?: string; toolInput?: unknown }
+        // Forward tool_execution_end events to ProgressTracker (Path A — live tracking).
+        // pi 1.11+ sends `tool_execution_end` (not `tool_use`) with fields
+        // `toolName` and `args` when a tool completes execution.
+        if (ev.type === 'tool_execution_end') {
+          const toolEv = ev as { type: string; toolName?: string; args?: unknown }
           if (toolEv.toolName) {
-            progressTracker.handleToolUse(toolEv.toolName, toolEv.toolInput)
+            progressTracker.handleToolUse(toolEv.toolName, toolEv.args)
           }
         }
         // Forward cost_update events to ProgressTracker.

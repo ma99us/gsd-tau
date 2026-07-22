@@ -1,0 +1,151 @@
+{
+  "runId": "uat:M007:S04:attempt-1",
+  "attempt": 1,
+  "milestoneId": "M007",
+  "sliceId": "S04",
+  "uatType": "runtime-executable",
+  "verdict": "PASS",
+  "gateVerdict": "pass",
+  "evaluatedAt": "2026-07-22T16:23:49.041Z",
+  "worktreeRoot": "D:\\Projects\\gsd-tau",
+  "browserToolsPresented": false,
+  "modePolicy": {
+    "browserTools": false,
+    "partialEligible": false,
+    "passWithHumanFollowUp": false,
+    "requiredAnyModes": [
+      "runtime"
+    ]
+  },
+  "checks": [
+    {
+      "id": "UAT-01",
+      "description": "TypeScript compilation clean — pnpm tsc --noEmit exits 0 with no diagnostics",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "e78ff4df-7bdb-4cc7-b384-6e0bb76ab386",
+          "note": "Exit 0, no errors output"
+        }
+      ],
+      "notes": "TSC completed with no diagnostics. Output: 'Already up to date / Done in 857ms'."
+    },
+    {
+      "id": "UAT-02",
+      "description": "Full vitest suite — 42 test files, ≥1177 tests, all passed, zero failures",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "447d69e8-b112-4c1b-80a3-89be18c8350d",
+          "note": "Test Files: 42 passed (42), Tests: 1177 passed (1177), Duration: 5.03s"
+        }
+      ],
+      "notes": "42 test files, 1177 tests all passed. Zero failures."
+    },
+    {
+      "id": "UAT-03",
+      "description": "IPC handler count — registration assertion for 26 handlers passes",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "271401b8-02d5-4183-9222-070c3b589ced",
+          "note": "✓ registers handlers for all 26 IPC channels"
+        }
+      ],
+      "notes": "handlers.test.ts verbose output confirms: '✓ registerHandlers > handler registration > registers handlers for all 26 IPC channels'"
+    },
+    {
+      "id": "UAT-04",
+      "description": "AutoRunPanel visibility gate — progress=null hidden; milestone+panelOpen=true shown; panelOpen=false hidden",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "79035183-acb6-4a2a-b682-5055ba667d34",
+          "note": "All 4 visibility gate tests passed"
+        }
+      ],
+      "notes": "SessionView.test.ts confirms: gate progress===null suppresses panel; gate milestone===null suppresses; gate panelOpen===false suppresses; all three conditions true renders the panel."
+    },
+    {
+      "id": "UAT-05",
+      "description": "Ctrl+Slash toggle — dispatching keydown with key='/' and ctrlKey=true on active session toggles panelOpen",
+      "mode": "runtime",
+      "result": "PASS",
+      "evidence": [
+        {
+          "kind": "gsd_uat_exec",
+          "ref": "79035183-acb6-4a2a-b682-5055ba667d34",
+          "note": "3 Ctrl+Slash tests passed"
+        }
+      ],
+      "notes": "SessionView.test.ts confirms: panelOpen initialises to true; Ctrl+Slash scoped to active tab via isActive guard; calls preventDefault before toggling; listener removed via useEffect cleanup."
+    }
+  ],
+  "presentation": {
+    "surface": "mcp",
+    "presentedTools": [
+      "gsd_uat_exec",
+      "gsd_uat_result_save",
+      "gsd_resume",
+      "gsd_milestone_status",
+      "gsd_journal_query",
+      "find",
+      "glob",
+      "grep",
+      "ls",
+      "read"
+    ],
+    "blockedTools": [
+      {
+        "name": "edit",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_exec",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_summary_save",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "gsd_save_gate_result",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "search-the-web",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "WebSearch",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Bash",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Write",
+        "reason": "forbidden during run-uat"
+      },
+      {
+        "name": "Edit",
+        "reason": "forbidden during run-uat"
+      }
+    ],
+    "toolPresentationPlanId": "run-uat/default-v1"
+  },
+  "notes": "All 5 automated checks passed: TSC exits 0, 42 test files / 1177 tests all pass, 26 IPC handlers registered, AutoRunPanel visibility gate (3 negative + 1 positive), and Ctrl+Slash toggle tests all green."
+}

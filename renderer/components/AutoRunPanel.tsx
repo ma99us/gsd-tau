@@ -34,6 +34,8 @@ export interface AutoRunPanelProps {
   onPause: () => void
   /** Called when the user clicks the Refresh button. */
   onRefresh: () => void
+  /** Called when the user clicks the Open Roadmap button. Optional — button hidden when omitted. */
+  onOpenRoadmap?: () => void
 }
 
 // ── Exported pure helpers (tested in AutoRunPanel.test.ts) ────────────────────
@@ -268,6 +270,7 @@ export function AutoRunPanel({
   progress,
   onPause,
   onRefresh,
+  onOpenRoadmap,
 }: AutoRunPanelProps): JSX.Element {
   const { milestone, currentSliceId, currentTaskId } = progress
   const { costLabel, elapsedLabel } = computePanelFooter(milestone)
@@ -294,6 +297,18 @@ export function AutoRunPanel({
           >
             ↺
           </button>
+          {onOpenRoadmap !== undefined && (
+            <button
+              type="button"
+              onClick={onOpenRoadmap}
+              className="rounded px-2 py-0.5 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 focus:outline-none"
+              title="Open ROADMAP.md"
+              aria-label="Open roadmap file"
+              data-testid="open-roadmap-button"
+            >
+              ↗ Roadmap
+            </button>
+          )}
           <button
             type="button"
             onClick={onPause}

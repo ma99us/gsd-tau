@@ -31,6 +31,8 @@ const KNOWN_TYPES = new Set([
   'message_update',
   'tool_use',
   'tool_result',
+  'tool_execution_start',
+  'tool_execution_end',
   'cost_update',
 ])
 

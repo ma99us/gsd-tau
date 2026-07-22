@@ -24,7 +24,7 @@
 - [x] **S03: AutoRunPanel React component** `risk:low` `depends:[S01,S02]`
   > After this: Storybook/vitest-component: render panel with a fixture GsdProgress tree; checkmark/play/circle/skip icons render correctly; replanned node shows replan marker; clicking Pause calls onPause(); clicking Refresh calls onRefresh().
 
-- [ ] **S04: SessionView integration, shortcut wiring, and panel visibility** `risk:low` `depends:[S02,S03]`
+- [x] **S04: SessionView integration, shortcut wiring, and panel visibility** `risk:low` `depends:[S02,S03]`
   > After this: In the running app: start /gsd auto, panel appears automatically; Ctrl+Slash hides/shows it; Pause sends abort; Refresh triggers Path B; Open roadmap opens the file in the OS default editor.
 
 ## Boundary Map

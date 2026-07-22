@@ -269,6 +269,20 @@ describe('registerHandlers', () => {
       expect(mockWcList[0].send).not.toHaveBeenCalled()
     })
 
+    it('fans out PUSH.PROGRESS_UPDATE on tool_execution_end for a GSD planning tool (Path A)', async () => {
+      await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
+      mockHandle.emit('event', {
+        type: 'tool_execution_end',
+        toolName: 'gsd_plan_milestone',
+        args: { milestoneId: 'M001' },
+      })
+      const progressUpdates = mockWcList[0].send.mock.calls.filter(
+        (c) => c[0] === PUSH.PROGRESS_UPDATE,
+      )
+      expect(progressUpdates.length).toBeGreaterThan(0)
+      expect(progressUpdates[0][1]).toMatchObject({ sessionId: mockHandle.sessionId })
+    })
+
     it('auto-acks non-interactive extension_ui_request and does NOT track it', async () => {
       await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/proj')
       mockHandle.emit('event', {
@@ -1083,6 +1097,146 @@ describe('registerHandlers', () => {
       )
       spy.mockRestore()
     })
+  })
+})
+
+// ── openRoadmap ───────────────────────────────────────────────────────────────
+//
+// Tests the OPEN_ROADMAP IPC handler (Path A milestone resolution +
+// shell.openPath).
+
+describe('openRoadmap', () => {
+  let capturedHandlers: Map<string, IpcHandler>
+  let mockHandle: MockHandle
+  let mockWcList: Array<ReturnType<typeof makeMockWc>>
+  let manager: {
+    open: ReturnType<typeof vi.fn>
+    prompt: ReturnType<typeof vi.fn>
+    abort: ReturnType<typeof vi.fn>
+    get: ReturnType<typeof vi.fn>
+    close: ReturnType<typeof vi.fn>
+    registerPreShutdownHook: ReturnType<typeof vi.fn>
+    list: ReturnType<typeof vi.fn>
+    rename: ReturnType<typeof vi.fn>
+    resume: ReturnType<typeof vi.fn>
+    getHistorySessionFile: ReturnType<typeof vi.fn>
+    updateSessionFile: ReturnType<typeof vi.fn>
+    getRpcState: ReturnType<typeof vi.fn>
+    getSessionStats: ReturnType<typeof vi.fn>
+    compact: ReturnType<typeof vi.fn>
+    listMissingPaths: ReturnType<typeof vi.fn>
+    removeMissingPath: ReturnType<typeof vi.fn>
+    getAvailableModels: ReturnType<typeof vi.fn>
+    setModel: ReturnType<typeof vi.fn>
+  }
+  let cleanup: () => void
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    capturedHandlers = new Map()
+    mockHandle = new MockHandle()
+    mockWcList = [makeMockWc()]
+    const ipcMock = ipcMain as unknown as { handle: ReturnType<typeof vi.fn>; removeHandler: ReturnType<typeof vi.fn> }
+    ipcMock.handle.mockImplementation((channel: string, fn: IpcHandler) => {
+      capturedHandlers.set(channel, fn)
+    })
+    ipcMock.removeHandler.mockImplementation((channel: string) => {
+      capturedHandlers.delete(channel)
+    })
+    ;(electronWc as unknown as { getAllWebContents: ReturnType<typeof vi.fn> }).getAllWebContents.mockReturnValue(mockWcList)
+    manager = {
+      open: vi.fn().mockResolvedValue(mockHandle),
+      prompt: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn(),
+      close: vi.fn().mockResolvedValue(undefined),
+      registerPreShutdownHook: vi.fn(),
+      list: vi.fn().mockReturnValue([]),
+      rename: vi.fn(),
+      resume: vi.fn().mockResolvedValue(undefined),
+      getHistorySessionFile: vi.fn().mockReturnValue(undefined),
+      updateSessionFile: vi.fn(),
+      getRpcState: vi.fn().mockResolvedValue(null),
+      getSessionStats: vi.fn().mockResolvedValue(null),
+      compact: vi.fn().mockResolvedValue({ summary: 'compacted', firstKeptEntryId: 'e1', tokensBefore: 1000 }),
+      listMissingPaths: vi.fn().mockReturnValue([]),
+      removeMissingPath: vi.fn(),
+      getAvailableModels: vi.fn().mockResolvedValue([]),
+      setModel: vi.fn().mockResolvedValue(undefined),
+    }
+    ;({ cleanup } = registerHandlers(manager as never))
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.clearAllMocks()
+  })
+
+  /** Open a project and emit a tool_execution_end for a GSD milestone tool. */
+  async function openProjectWithMilestone(milestoneId: string): Promise<void> {
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/project')
+    mockHandle.emit('event', {
+      type: 'tool_execution_end',
+      toolName: 'gsd_plan_milestone',
+      args: { milestoneId },
+    })
+  }
+
+  it('returns without calling shell.openPath for an unknown sessionId', async () => {
+    await capturedHandlers.get(IPC.OPEN_ROADMAP)!(null, 's_unknown')
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it('returns without calling shell.openPath when no active milestone', async () => {
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/project')
+    // No tool_execution_end emitted — ProgressTracker has no milestone.
+    await capturedHandlers.get(IPC.OPEN_ROADMAP)!(null, mockHandle.sessionId)
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it('returns without calling shell.openPath when milestoneId is unparseable', async () => {
+    await capturedHandlers.get(IPC.OPEN_PROJECT)!(null, '/project')
+    mockHandle.emit('event', {
+      type: 'tool_execution_end',
+      toolName: 'gsd_plan_milestone',
+      args: { milestoneId: 'INVALID' },
+    })
+    await capturedHandlers.get(IPC.OPEN_ROADMAP)!(null, mockHandle.sessionId)
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it('returns without calling shell.openPath when phases directory cannot be read', async () => {
+    ;(readdirSync as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new Error('ENOENT')
+    })
+    await openProjectWithMilestone('M007')
+    await capturedHandlers.get(IPC.OPEN_ROADMAP)!(null, mockHandle.sessionId)
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it('returns without calling shell.openPath when no matching milestone directory is found', async () => {
+    ;(readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
+      { name: '08-other-phase', isDirectory: () => true },
+    ])
+    await openProjectWithMilestone('M007')
+    await capturedHandlers.get(IPC.OPEN_ROADMAP)!(null, mockHandle.sessionId)
+    expect(shell.openPath).not.toHaveBeenCalled()
+  })
+
+  it('calls shell.openPath with the ROADMAP.md path when milestone directory is found', async () => {
+    ;(readdirSync as ReturnType<typeof vi.fn>).mockReturnValue([
+      { name: '07-auto-run-panel', isDirectory: () => true },
+    ])
+    ;(shell.openPath as ReturnType<typeof vi.fn>).mockResolvedValue('')
+    await openProjectWithMilestone('M007')
+    await capturedHandlers.get(IPC.OPEN_ROADMAP)!(null, mockHandle.sessionId)
+    expect(shell.openPath).toHaveBeenCalledWith(
+      expect.stringContaining('07-auto-run-panel'),
+    )
+    expect(shell.openPath).toHaveBeenCalledWith(
+      expect.stringMatching(/ROADMAP\.md$/),
+    )
   })
 })
 

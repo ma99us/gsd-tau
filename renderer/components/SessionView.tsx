@@ -462,6 +462,7 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
             progress={progress}
             onPause={handlePause}
             onRefresh={handleRefresh}
+            onOpenRoadmap={handleOpenRoadmap}
           />
         </div>
       )}
