@@ -306,6 +306,74 @@ describe('ModelPickerDropdownProps', () => {
       expect.arrayContaining(['sessionId', 'currentModel', 'onModelSelected']),
     )
   })
+
+  // ── Controlled-open props ─────────────────────────────────────────────────
+
+  it('open is absent (undefined) in uncontrolled mode — omitting it is valid', () => {
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: () => undefined,
+    }
+    expect(props.open).toBeUndefined()
+  })
+
+  it('open can be a boolean false for controlled mode (closed)', () => {
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: () => undefined,
+      open: false,
+    }
+    expect(props.open).toBe(false)
+  })
+
+  it('open can be a boolean true for controlled mode (open)', () => {
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: () => undefined,
+      open: true,
+    }
+    expect(props.open).toBe(true)
+  })
+
+  it('onOpenChange is absent when the component is in uncontrolled mode', () => {
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: () => undefined,
+    }
+    expect(props.onOpenChange).toBeUndefined()
+  })
+
+  it('onOpenChange is a function with a boolean parameter in controlled mode', () => {
+    let received: boolean | undefined
+    const props: ModelPickerDropdownProps = {
+      sessionId: 's1',
+      currentModel: null,
+      onModelSelected: () => undefined,
+      open: false,
+      onOpenChange: (nextOpen: boolean) => { received = nextOpen },
+    }
+    expect(typeof props.onOpenChange).toBe('function')
+    props.onOpenChange!(true)
+    expect(received).toBe(true)
+  })
+
+  it('controlled and uncontrolled modes are structurally distinguished by the presence of open', () => {
+    // Structural test: same three required props, controlled adds open + onOpenChange.
+    const uncontrolled: ModelPickerDropdownProps = {
+      sessionId: 's1', currentModel: null, onModelSelected: () => undefined,
+    }
+    const controlled: ModelPickerDropdownProps = {
+      sessionId: 's1', currentModel: null, onModelSelected: () => undefined,
+      open: false, onOpenChange: () => undefined,
+    }
+    expect('open' in uncontrolled).toBe(false)
+    expect(controlled.open).toBe(false)
+    expect(typeof controlled.onOpenChange).toBe('function')
+  })
 })
 
 // ── Runtime behavior contracts (documented; require jsdom for DOM assertion) ──

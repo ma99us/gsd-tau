@@ -39,6 +39,12 @@ import { QuotaWidget } from './QuotaWidget'
 export interface SessionHeaderBarProps {
   /** Stable RPC session id — used for IPC calls and event subscription. */
   sessionId: SessionId
+  /**
+   * When true, forces the model picker dropdown open.
+   * Set by the Ctrl+. keyboard handler in App.tsx; SessionHeaderBar manages
+   * the actual `pickerOpen` state and resets it when the dropdown closes.
+   */
+  forcePickerOpen?: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,11 +60,23 @@ export function formatCost(cost: number): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Element {
+export function SessionHeaderBar({ sessionId, forcePickerOpen }: SessionHeaderBarProps): JSX.Element {
   const [model, setModel] = useState<ModelInfo | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | null>(null)
   const [isReasoningModel, setIsReasoningModel] = useState(false)
   const [cost, setCost] = useState(0)
+  // Controlled open state for the model picker dropdown.
+  // Mirrors forcePickerOpen (true → open) and clears itself when the user
+  // closes the dropdown (onOpenChange(false) fires from Radix).
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  // Sync external forcePickerOpen → pickerOpen.  Only reacts to true so that
+  // App.tsx does not need to reset the flag after the shortcut fires.
+  useEffect(() => {
+    if (forcePickerOpen) {
+      setPickerOpen(true)
+    }
+  }, [forcePickerOpen])
 
   /**
    * Apply an optimistic model update then call setModel over IPC.
@@ -168,6 +186,8 @@ export function SessionHeaderBar({ sessionId }: SessionHeaderBarProps): JSX.Elem
         sessionId={sessionId}
         currentModel={model}
         onModelSelected={handleModelSelected}
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
       />
 
       {/* Visual separator */}

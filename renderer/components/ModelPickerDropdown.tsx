@@ -30,6 +30,17 @@ export interface ModelPickerDropdownProps {
   currentModel: { provider: string; id: string } | null
   /** Called when the user selects a model from the list. */
   onModelSelected: (model: ModelInfo) => void
+  /**
+   * Externally controlled open state.  When provided the component operates
+   * in controlled mode — the caller is responsible for toggling open/close.
+   * Omit to use the default uncontrolled behaviour (internal state).
+   */
+  open?: boolean
+  /**
+   * Called when the dropdown requests an open-state change.  In controlled
+   * mode the caller must update `open` in response to receive the new state.
+   */
+  onOpenChange?: (open: boolean) => void
 }
 
 // ── Exported helpers (tested in isolation) ────────────────────────────────────
@@ -79,15 +90,25 @@ export function ModelPickerDropdown({
   sessionId,
   currentModel,
   onModelSelected,
+  open: controlledOpen,
+  onOpenChange: onControlledOpenChange,
 }: ModelPickerDropdownProps): JSX.Element {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  // Controlled mode when the caller provides `open`; uncontrolled otherwise.
+  const isControlled = controlledOpen !== undefined
+  const effectiveOpen = isControlled ? controlledOpen : internalOpen
   const { models, loading, fetch } = useAvailableModels(sessionId)
 
   const triggerLabel =
     currentModel !== null ? `${currentModel.provider}/${currentModel.id}` : '—'
 
   function handleOpenChange(nextOpen: boolean): void {
-    setOpen(nextOpen)
+    if (isControlled) {
+      // Delegate state ownership back to the caller.
+      onControlledOpenChange?.(nextOpen)
+    } else {
+      setInternalOpen(nextOpen)
+    }
     if (nextOpen) {
       // Fetch on first open; subsequent opens within 60 s return cached data.
       fetch()
@@ -97,7 +118,7 @@ export function ModelPickerDropdown({
   const groups = groupAndSortModels(models)
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={handleOpenChange}>
+    <DropdownMenu.Root open={effectiveOpen} onOpenChange={handleOpenChange}>
       <DropdownMenu.Trigger asChild>
         {/*
          * Styled to match the existing plain <span> chip in SessionHeaderBar:

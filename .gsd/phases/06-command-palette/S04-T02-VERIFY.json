@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T02",
+  "unitId": "M006/S04/T02",
+  "timestamp": 1784724973899,
+  "passed": true,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "pnpm vitest run renderer/components/ModelPickerDropdown.test.ts",
+      "exitCode": 0,
+      "durationMs": 7938,
+      "verdict": "pass"
+    }
+  ]
+}
