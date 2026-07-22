@@ -9,4 +9,5 @@
 - ✅ **M005: Model Picker, Context Gauge, Copilot Quota** (`depends:[M004]`)
 - ✅ **M006: Command Palette** (`depends:[—]`)
 - ✅ **M007: Auto-run Panel** (`depends:[—]`)
-- ⬜ **M008: M008** (`depends:[—]`)
+- 🔄 **M008: Notifications, Tray, and Taskbar Polish** (`depends:[—]`)
+- ⬜ **M009: M009** (`depends:[—]`)

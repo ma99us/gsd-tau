@@ -6,7 +6,7 @@
  * starting Electron.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { showBlockerToast, _resetDebounce } from './notifications'
+import { showBlockerToast, showStoppedToast, showMilestoneCompleteToast, _resetDebounce } from './notifications'
 
 // ── Electron mock ──────────────────────────────────────────────────────────────
 // vi.hoisted ensures these refs are created before the vi.mock factory runs,
@@ -201,6 +201,203 @@ describe('showBlockerToast', () => {
 
       expect(mockWinShow1).toHaveBeenCalledOnce()
       expect(mockWinShow2).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('showStoppedToast', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetDebounce()
+    mockIsSupported.mockReturnValue(true)
+    mockGetAllWindows.mockReturnValue([{ show: vi.fn() }])
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // ── Happy path ──────────────────────────────────────────────────────────────
+
+  it('creates a Notification with the correct title and body', () => {
+    showStoppedToast('my-project')
+    expect(MockNotificationClass).toHaveBeenCalledOnce()
+    expect(MockNotificationClass).toHaveBeenCalledWith({
+      title: 'gsd-tau session stopped',
+      body: 'my-project has stopped',
+    })
+  })
+
+  it('registers a click listener and calls show()', () => {
+    showStoppedToast('my-project')
+    expect(mockNotificationOn).toHaveBeenCalledWith('click', expect.any(Function))
+    expect(mockNotificationShow).toHaveBeenCalledOnce()
+  })
+
+  it('renders the session name in the body', () => {
+    showStoppedToast('api-refactor')
+    expect(MockNotificationClass).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'api-refactor has stopped' }),
+    )
+  })
+
+  // ── No debounce ─────────────────────────────────────────────────────────────
+
+  it('allows two consecutive stopped toasts for the same session (no debounce)', () => {
+    showStoppedToast('my-project')
+    showStoppedToast('my-project')
+    // Stopped has no debounce — each call fires unconditionally.
+    expect(MockNotificationClass).toHaveBeenCalledTimes(2)
+  })
+
+  // ── Platform guard ──────────────────────────────────────────────────────────
+
+  it('skips toast creation when Notification.isSupported() returns false', () => {
+    mockIsSupported.mockReturnValue(false)
+    showStoppedToast('my-project')
+    expect(MockNotificationClass).not.toHaveBeenCalled()
+    expect(mockNotificationShow).not.toHaveBeenCalled()
+  })
+
+  // ── Click handler ───────────────────────────────────────────────────────────
+
+  describe('click handler', () => {
+    it('calls win.show() and app.focus({ steal: true }) when clicked', () => {
+      const mockWinShow = vi.fn()
+      mockGetAllWindows.mockReturnValue([{ show: mockWinShow }])
+
+      showStoppedToast('my-project')
+      const clickHandler = getClickHandler()
+      expect(clickHandler).toBeDefined()
+
+      clickHandler!()
+      expect(mockWinShow).toHaveBeenCalledOnce()
+      expect(mockAppFocus).toHaveBeenCalledWith({ steal: true })
+    })
+
+    it('calls app.focus() even when no window is open', () => {
+      mockGetAllWindows.mockReturnValue([])
+      showStoppedToast('my-project')
+      getClickHandler()!()
+      expect(mockAppFocus).toHaveBeenCalledWith({ steal: true })
+    })
+  })
+})
+
+describe('showMilestoneCompleteToast', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    _resetDebounce()
+    mockIsSupported.mockReturnValue(true)
+    mockGetAllWindows.mockReturnValue([{ show: vi.fn() }])
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // ── Happy path ──────────────────────────────────────────────────────────────
+
+  it('creates a Notification with the correct title and body', () => {
+    showMilestoneCompleteToast('my-project', 'Session Manager')
+    expect(MockNotificationClass).toHaveBeenCalledOnce()
+    expect(MockNotificationClass).toHaveBeenCalledWith({
+      title: 'Milestone complete',
+      body: 'my-project: Session Manager',
+    })
+  })
+
+  it('registers a click listener and calls show()', () => {
+    showMilestoneCompleteToast('my-project', 'Session Manager')
+    expect(mockNotificationOn).toHaveBeenCalledWith('click', expect.any(Function))
+    expect(mockNotificationShow).toHaveBeenCalledOnce()
+  })
+
+  it('renders session name and milestone title in the body', () => {
+    showMilestoneCompleteToast('api-refactor', 'UI Bridge')
+    expect(MockNotificationClass).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'api-refactor: UI Bridge' }),
+    )
+  })
+
+  // ── Debounce ─────────────────────────────────────────────────────────────────
+
+  it('suppresses a second call within 3s for the same session', () => {
+    showMilestoneCompleteToast('my-project', 'M001')
+    showMilestoneCompleteToast('my-project', 'M002') // debounced
+    expect(MockNotificationClass).toHaveBeenCalledOnce()
+  })
+
+  it('allows a second toast for a different session within the debounce window', () => {
+    showMilestoneCompleteToast('project-a', 'M001')
+    showMilestoneCompleteToast('project-b', 'M001')
+    expect(MockNotificationClass).toHaveBeenCalledTimes(2)
+  })
+
+  it('allows a second toast after the 3s debounce window has elapsed', () => {
+    vi.useFakeTimers()
+    showMilestoneCompleteToast('my-project', 'M001')
+    vi.advanceTimersByTime(3_001)
+    showMilestoneCompleteToast('my-project', 'M002')
+    expect(MockNotificationClass).toHaveBeenCalledTimes(2)
+  })
+
+  it('still debounces a call 1ms before the window expires', () => {
+    vi.useFakeTimers()
+    showMilestoneCompleteToast('my-project', 'M001')
+    vi.advanceTimersByTime(2_999)
+    showMilestoneCompleteToast('my-project', 'M002')
+    expect(MockNotificationClass).toHaveBeenCalledOnce()
+  })
+
+  it('milestone debounce timer is independent of blocker debounce for the same session', () => {
+    // A blocker toast fires first; the milestone toast should still fire
+    // because it uses a separate 'milestone:' key in lastToastTime.
+    showBlockerToast('my-project', 'confirm')
+    showMilestoneCompleteToast('my-project', 'M001')
+    expect(MockNotificationClass).toHaveBeenCalledTimes(2)
+  })
+
+  // ── Platform guard ──────────────────────────────────────────────────────────
+
+  it('skips toast creation when Notification.isSupported() returns false', () => {
+    mockIsSupported.mockReturnValue(false)
+    showMilestoneCompleteToast('my-project', 'Session Manager')
+    expect(MockNotificationClass).not.toHaveBeenCalled()
+    expect(mockNotificationShow).not.toHaveBeenCalled()
+  })
+
+  it('still advances the debounce timer even when isSupported is false', () => {
+    vi.useFakeTimers()
+    mockIsSupported.mockReturnValue(false)
+    showMilestoneCompleteToast('my-project', 'M001')
+    // Debounce key was set — second call within window is also suppressed.
+    mockIsSupported.mockReturnValue(true)
+    showMilestoneCompleteToast('my-project', 'M002')
+    expect(MockNotificationClass).not.toHaveBeenCalled()
+  })
+
+  // ── Click handler ───────────────────────────────────────────────────────────
+
+  describe('click handler', () => {
+    it('calls win.show() and app.focus({ steal: true }) when clicked', () => {
+      const mockWinShow = vi.fn()
+      mockGetAllWindows.mockReturnValue([{ show: mockWinShow }])
+
+      showMilestoneCompleteToast('my-project', 'Session Manager')
+      const clickHandler = getClickHandler()
+      expect(clickHandler).toBeDefined()
+
+      clickHandler!()
+      expect(mockWinShow).toHaveBeenCalledOnce()
+      expect(mockAppFocus).toHaveBeenCalledWith({ steal: true })
+    })
+
+    it('calls app.focus() even when no window is open', () => {
+      mockGetAllWindows.mockReturnValue([])
+      showMilestoneCompleteToast('my-project', 'Session Manager')
+      getClickHandler()!()
+      expect(mockAppFocus).toHaveBeenCalledWith({ steal: true })
     })
   })
 })

@@ -62,6 +62,84 @@ export function showBlockerToast(sessionName: string, method: string): void {
 }
 
 /**
+ * Show a Windows toast notification when a session stops (crashes or exits unexpectedly).
+ *
+ * No debounce — a session stops at most once per lifecycle, so duplicate suppression
+ * is not needed here.
+ *
+ * @param sessionName  Human-readable session identifier. Typically `basename(cwd)`.
+ */
+export function showStoppedToast(sessionName: string): void {
+  if (!Notification.isSupported()) {
+    console.warn('[notifications] Notification API not supported on this platform — skipping toast')
+    return
+  }
+
+  const notification = new Notification({
+    title: 'gsd-tau session stopped',
+    body: `${sessionName} has stopped`,
+  })
+
+  notification.on('click', () => {
+    const win = BrowserWindow.getAllWindows()[0] ?? null
+    if (win) {
+      win.show()
+    }
+    app.focus({ steal: true })
+  })
+
+  notification.show()
+  console.log(`[notifications] stopped toast shown session=${sessionName}`)
+}
+
+/**
+ * Show a Windows toast notification when a milestone completes.
+ *
+ * Debounced per-session at the same {@link DEBOUNCE_MS} cadence so rapid
+ * back-to-back milestone completions in auto-mode don't flood the notification
+ * centre. Uses a `'milestone:'`-prefixed key so the debounce timer is independent
+ * of the blocker-toast timer for the same session.
+ *
+ * @param sessionName     Human-readable session identifier. Typically `basename(cwd)`.
+ * @param milestoneTitle  Display title of the completed milestone.
+ */
+export function showMilestoneCompleteToast(sessionName: string, milestoneTitle: string): void {
+  const now = Date.now()
+  const key = `milestone:${sessionName}`
+  const last = lastToastTime.get(key) ?? 0
+
+  if (now - last < DEBOUNCE_MS) {
+    console.debug(
+      `[notifications] milestone toast debounced session=${sessionName} (${DEBOUNCE_MS - (now - last)}ms remaining)`,
+    )
+    return
+  }
+
+  lastToastTime.set(key, now)
+
+  if (!Notification.isSupported()) {
+    console.warn('[notifications] Notification API not supported on this platform — skipping toast')
+    return
+  }
+
+  const notification = new Notification({
+    title: 'Milestone complete',
+    body: `${sessionName}: ${milestoneTitle}`,
+  })
+
+  notification.on('click', () => {
+    const win = BrowserWindow.getAllWindows()[0] ?? null
+    if (win) {
+      win.show()
+    }
+    app.focus({ steal: true })
+  })
+
+  notification.show()
+  console.log(`[notifications] milestone toast shown session=${sessionName} milestone=${milestoneTitle}`)
+}
+
+/**
  * Reset the per-session debounce timers.
  *
  * **For testing only** — do not call in production code. The leading underscore

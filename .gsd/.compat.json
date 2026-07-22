@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-22T19:30:51.642Z",
+  "lastProjectedAt": "2026-07-22T19:53:42.217Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -1315,6 +1315,513 @@
       "entities": [
         "M001",
         "M001/S02"
+      ]
+    },
+    "phases/01-m001/01-01-ASSESSMENT.md": {
+      "sha": "497516b61f7e7b48",
+      "entities": [
+        "M001",
+        "M001/S01"
+      ]
+    },
+    "phases/01-m001/01-01-SUMMARY.md": {
+      "sha": "ecc8faad0784e93b",
+      "entities": [
+        "M001",
+        "M001/S01"
+      ]
+    },
+    "phases/01-m001/01-01-UAT.md": {
+      "sha": "2b2bfc7437f50fc3",
+      "entities": [
+        "M001",
+        "M001/S01"
+      ]
+    },
+    "phases/01-m001/S01-T01-SUMMARY.md": {
+      "sha": "0fd04d3549f6a7ab",
+      "entities": [
+        "M001",
+        "M001/S01",
+        "M001/S01/T01"
+      ]
+    },
+    "phases/01-m001/S01-T02-SUMMARY.md": {
+      "sha": "ea6abe6ed31d6650",
+      "entities": [
+        "M001",
+        "M001/S01",
+        "M001/S01/T02"
+      ]
+    },
+    "phases/01-m001/S01-T03-SUMMARY.md": {
+      "sha": "3ef166fa08ede26a",
+      "entities": [
+        "M001",
+        "M001/S01",
+        "M001/S01/T03"
+      ]
+    },
+    "phases/01-m001/01-02-ASSESSMENT.md": {
+      "sha": "c8d7ee5c7348bc93",
+      "entities": [
+        "M001",
+        "M001/S02"
+      ]
+    },
+    "phases/01-m001/01-02-SUMMARY.md": {
+      "sha": "d488e9c5e31d8b2d",
+      "entities": [
+        "M001",
+        "M001/S02"
+      ]
+    },
+    "phases/01-m001/01-02-UAT.md": {
+      "sha": "db82496e4dfc2003",
+      "entities": [
+        "M001",
+        "M001/S02"
+      ]
+    },
+    "phases/01-m001/S02-T01-SUMMARY.md": {
+      "sha": "58bb6947c054486c",
+      "entities": [
+        "M001",
+        "M001/S02",
+        "M001/S02/T01"
+      ]
+    },
+    "phases/01-m001/S02-T02-SUMMARY.md": {
+      "sha": "6956dc1dfd6461cf",
+      "entities": [
+        "M001",
+        "M001/S02",
+        "M001/S02/T02"
+      ]
+    },
+    "phases/01-m001/S02-T03-SUMMARY.md": {
+      "sha": "831fe6608a9abd41",
+      "entities": [
+        "M001",
+        "M001/S02",
+        "M001/S02/T03"
+      ]
+    },
+    "phases/06-command-palette/06-01-ASSESSMENT.md": {
+      "sha": "e6f0ffa3595ed4b9",
+      "entities": [
+        "M006",
+        "M006/S01"
+      ]
+    },
+    "phases/06-command-palette/06-01-RESEARCH.md": {
+      "sha": "f4569cab32876002",
+      "entities": [
+        "M006",
+        "M006/S01"
+      ]
+    },
+    "phases/06-command-palette/06-01-SUMMARY.md": {
+      "sha": "603ea62f40cdfe0b",
+      "entities": [
+        "M006",
+        "M006/S01"
+      ]
+    },
+    "phases/06-command-palette/06-01-UAT.md": {
+      "sha": "b8f76a7355508111",
+      "entities": [
+        "M006",
+        "M006/S01"
+      ]
+    },
+    "phases/06-command-palette/S01-T01-SUMMARY.md": {
+      "sha": "87ffeb66fa6fc8d9",
+      "entities": [
+        "M006",
+        "M006/S01",
+        "M006/S01/T01"
+      ]
+    },
+    "phases/06-command-palette/S01-T02-SUMMARY.md": {
+      "sha": "8712af20437a54a6",
+      "entities": [
+        "M006",
+        "M006/S01",
+        "M006/S01/T02"
+      ]
+    },
+    "phases/06-command-palette/06-02-ASSESSMENT.md": {
+      "sha": "428952eccc6162ec",
+      "entities": [
+        "M006",
+        "M006/S02"
+      ]
+    },
+    "phases/06-command-palette/06-02-RESEARCH.md": {
+      "sha": "70d019aeeade41d9",
+      "entities": [
+        "M006",
+        "M006/S02"
+      ]
+    },
+    "phases/06-command-palette/06-02-SUMMARY.md": {
+      "sha": "a9d34492a11cd5ca",
+      "entities": [
+        "M006",
+        "M006/S02"
+      ]
+    },
+    "phases/06-command-palette/06-02-UAT.md": {
+      "sha": "c68b3f502a0fad55",
+      "entities": [
+        "M006",
+        "M006/S02"
+      ]
+    },
+    "phases/06-command-palette/S02-T01-SUMMARY.md": {
+      "sha": "c925caed9525d63b",
+      "entities": [
+        "M006",
+        "M006/S02",
+        "M006/S02/T01"
+      ]
+    },
+    "phases/06-command-palette/06-03-ASSESSMENT.md": {
+      "sha": "6c2118d5195096bf",
+      "entities": [
+        "M006",
+        "M006/S03"
+      ]
+    },
+    "phases/06-command-palette/06-03-RESEARCH.md": {
+      "sha": "089ca29c222be1d6",
+      "entities": [
+        "M006",
+        "M006/S03"
+      ]
+    },
+    "phases/06-command-palette/06-03-SUMMARY.md": {
+      "sha": "a858f6af05bfe9ca",
+      "entities": [
+        "M006",
+        "M006/S03"
+      ]
+    },
+    "phases/06-command-palette/06-03-UAT.md": {
+      "sha": "39bc00c726df0bb4",
+      "entities": [
+        "M006",
+        "M006/S03"
+      ]
+    },
+    "phases/06-command-palette/S03-T01-SUMMARY.md": {
+      "sha": "f885835c7ee6951d",
+      "entities": [
+        "M006",
+        "M006/S03",
+        "M006/S03/T01"
+      ]
+    },
+    "phases/06-command-palette/06-04-ASSESSMENT.md": {
+      "sha": "517be6f5d5a189b1",
+      "entities": [
+        "M006",
+        "M006/S04"
+      ]
+    },
+    "phases/06-command-palette/06-04-RESEARCH.md": {
+      "sha": "832d687427525d87",
+      "entities": [
+        "M006",
+        "M006/S04"
+      ]
+    },
+    "phases/06-command-palette/06-04-SUMMARY.md": {
+      "sha": "3b8fc4636a5b4f2f",
+      "entities": [
+        "M006",
+        "M006/S04"
+      ]
+    },
+    "phases/06-command-palette/06-04-UAT.md": {
+      "sha": "20a3f22ede0312fc",
+      "entities": [
+        "M006",
+        "M006/S04"
+      ]
+    },
+    "phases/06-command-palette/S04-T01-SUMMARY.md": {
+      "sha": "2985f29cf8a0cd85",
+      "entities": [
+        "M006",
+        "M006/S04",
+        "M006/S04/T01"
+      ]
+    },
+    "phases/06-command-palette/S04-T02-SUMMARY.md": {
+      "sha": "34e74561d5ca0543",
+      "entities": [
+        "M006",
+        "M006/S04",
+        "M006/S04/T02"
+      ]
+    },
+    "phases/06-command-palette/S04-T03-SUMMARY.md": {
+      "sha": "559432200f9eea3a",
+      "entities": [
+        "M006",
+        "M006/S04",
+        "M006/S04/T03"
+      ]
+    },
+    "phases/06-command-palette/06-05-ASSESSMENT.md": {
+      "sha": "53c5b40be2fdc32c",
+      "entities": [
+        "M006",
+        "M006/S05"
+      ]
+    },
+    "phases/06-command-palette/06-05-RESEARCH.md": {
+      "sha": "114b9813b9b1b4c3",
+      "entities": [
+        "M006",
+        "M006/S05"
+      ]
+    },
+    "phases/06-command-palette/06-05-SUMMARY.md": {
+      "sha": "d56dbd6709dac32b",
+      "entities": [
+        "M006",
+        "M006/S05"
+      ]
+    },
+    "phases/06-command-palette/06-05-UAT.md": {
+      "sha": "f1e6261a7c130a1c",
+      "entities": [
+        "M006",
+        "M006/S05"
+      ]
+    },
+    "phases/06-command-palette/S05-T01-SUMMARY.md": {
+      "sha": "4c4b324d28d60a6b",
+      "entities": [
+        "M006",
+        "M006/S05",
+        "M006/S05/T01"
+      ]
+    },
+    "phases/06-command-palette/S05-T02-SUMMARY.md": {
+      "sha": "d39ad58eb1162a9a",
+      "entities": [
+        "M006",
+        "M006/S05",
+        "M006/S05/T02"
+      ]
+    },
+    "phases/06-command-palette/S05-T03-SUMMARY.md": {
+      "sha": "42f03caa3c61c107",
+      "entities": [
+        "M006",
+        "M006/S05",
+        "M006/S05/T03"
+      ]
+    },
+    "phases/07-auto-run-panel/07-01-ASSESSMENT.md": {
+      "sha": "2af98ec8d00403f6",
+      "entities": [
+        "M007",
+        "M007/S01"
+      ]
+    },
+    "phases/07-auto-run-panel/07-01-RESEARCH.md": {
+      "sha": "61ec68a99c7550f7",
+      "entities": [
+        "M007",
+        "M007/S01"
+      ]
+    },
+    "phases/07-auto-run-panel/07-01-SUMMARY.md": {
+      "sha": "516d30b6930ab316",
+      "entities": [
+        "M007",
+        "M007/S01"
+      ]
+    },
+    "phases/07-auto-run-panel/07-01-UAT.md": {
+      "sha": "127522606adf1802",
+      "entities": [
+        "M007",
+        "M007/S01"
+      ]
+    },
+    "phases/07-auto-run-panel/S01-T01-SUMMARY.md": {
+      "sha": "2f2a9aa0bc4b2fbc",
+      "entities": [
+        "M007",
+        "M007/S01",
+        "M007/S01/T01"
+      ]
+    },
+    "phases/07-auto-run-panel/S01-T02-SUMMARY.md": {
+      "sha": "1a01eaeaad3af7d0",
+      "entities": [
+        "M007",
+        "M007/S01",
+        "M007/S01/T02"
+      ]
+    },
+    "phases/07-auto-run-panel/07-02-ASSESSMENT.md": {
+      "sha": "a4d95f38179964f2",
+      "entities": [
+        "M007",
+        "M007/S02"
+      ]
+    },
+    "phases/07-auto-run-panel/07-02-RESEARCH.md": {
+      "sha": "72f2558c7dc05c6c",
+      "entities": [
+        "M007",
+        "M007/S02"
+      ]
+    },
+    "phases/07-auto-run-panel/07-02-SUMMARY.md": {
+      "sha": "51af1841f0b2c3be",
+      "entities": [
+        "M007",
+        "M007/S02"
+      ]
+    },
+    "phases/07-auto-run-panel/07-02-UAT.md": {
+      "sha": "9347d28a11b98f84",
+      "entities": [
+        "M007",
+        "M007/S02"
+      ]
+    },
+    "phases/07-auto-run-panel/S02-T01-SUMMARY.md": {
+      "sha": "26c8cc7c7d1d6ec9",
+      "entities": [
+        "M007",
+        "M007/S02",
+        "M007/S02/T01"
+      ]
+    },
+    "phases/07-auto-run-panel/S02-T02-SUMMARY.md": {
+      "sha": "e8049172d80becaf",
+      "entities": [
+        "M007",
+        "M007/S02",
+        "M007/S02/T02"
+      ]
+    },
+    "phases/07-auto-run-panel/07-03-ASSESSMENT.md": {
+      "sha": "e867c1223c303399",
+      "entities": [
+        "M007",
+        "M007/S03"
+      ]
+    },
+    "phases/07-auto-run-panel/07-03-RESEARCH.md": {
+      "sha": "6171c7b8a2627359",
+      "entities": [
+        "M007",
+        "M007/S03"
+      ]
+    },
+    "phases/07-auto-run-panel/07-03-SUMMARY.md": {
+      "sha": "fc08d196aa58135a",
+      "entities": [
+        "M007",
+        "M007/S03"
+      ]
+    },
+    "phases/07-auto-run-panel/07-03-UAT.md": {
+      "sha": "633515caf7edb4a0",
+      "entities": [
+        "M007",
+        "M007/S03"
+      ]
+    },
+    "phases/07-auto-run-panel/S03-T01-SUMMARY.md": {
+      "sha": "8b5108c933d40cfc",
+      "entities": [
+        "M007",
+        "M007/S03",
+        "M007/S03/T01"
+      ]
+    },
+    "phases/07-auto-run-panel/S03-T02-SUMMARY.md": {
+      "sha": "008ddf09144e90f2",
+      "entities": [
+        "M007",
+        "M007/S03",
+        "M007/S03/T02"
+      ]
+    },
+    "phases/07-auto-run-panel/07-04-ASSESSMENT.md": {
+      "sha": "07a3411b557afc3c",
+      "entities": [
+        "M007",
+        "M007/S04"
+      ]
+    },
+    "phases/07-auto-run-panel/07-04-RESEARCH.md": {
+      "sha": "208cbf9e7ca26b2e",
+      "entities": [
+        "M007",
+        "M007/S04"
+      ]
+    },
+    "phases/07-auto-run-panel/07-04-SUMMARY.md": {
+      "sha": "e7915fc9caea556e",
+      "entities": [
+        "M007",
+        "M007/S04"
+      ]
+    },
+    "phases/07-auto-run-panel/07-04-UAT.md": {
+      "sha": "2bab447c61fdce42",
+      "entities": [
+        "M007",
+        "M007/S04"
+      ]
+    },
+    "phases/07-auto-run-panel/S04-T01-SUMMARY.md": {
+      "sha": "e5b0a2b50f31f257",
+      "entities": [
+        "M007",
+        "M007/S04",
+        "M007/S04/T01"
+      ]
+    },
+    "phases/07-auto-run-panel/S04-T02-SUMMARY.md": {
+      "sha": "319bf481850d476d",
+      "entities": [
+        "M007",
+        "M007/S04",
+        "M007/S04/T02"
+      ]
+    },
+    "phases/07-auto-run-panel/S04-T03-SUMMARY.md": {
+      "sha": "7b985a0be8548d37",
+      "entities": [
+        "M007",
+        "M007/S04",
+        "M007/S04/T03"
+      ]
+    },
+    "phases/08-notifications-tray-and-taskbar-polish/08-ROADMAP.md": {
+      "sha": "b6853eee9792f9bc",
+      "entities": [
+        "M008"
+      ]
+    },
+    "phases/08-notifications-tray-and-taskbar-polish/08-01-PLAN.md": {
+      "sha": "9c0b3a106b1463a7",
+      "entities": [
+        "M008",
+        "M008/S01"
       ]
     }
   },
