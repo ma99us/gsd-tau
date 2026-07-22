@@ -18,7 +18,7 @@
 - [x] **S01: GsdProgress data model and progress tracker** `risk:medium` `depends:[]`
   > After this: vitest run passes; feeding gsd_plan_milestone + gsd_task_complete + gsd_slice_complete events into ProgressTracker produces the correct GsdProgress tree; gsd_skip_slice marks a slice skipped; gsd_replan_slice mutates the task list.
 
-- [ ] **S02: SessionHandle integration and Path B reconciliation** `risk:medium` `depends:[S01]`
+- [x] **S02: SessionHandle integration and Path B reconciliation** `risk:medium` `depends:[S01]`
   > After this: In the running app with a live auto session: open DevTools, start /gsd auto, observe window.gsd.onProgressUpdate callbacks firing; after execution_complete the reconciliation runs and the snapshot matches gsd_milestone_status output.
 
 - [ ] **S03: AutoRunPanel React component** `risk:low` `depends:[S01,S02]`
