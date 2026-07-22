@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-22T12:32:45.081Z",
+  "lastProjectedAt": "2026-07-22T12:41:22.253Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -1216,7 +1216,7 @@
       ]
     },
     "phases/06-command-palette/06-ROADMAP.md": {
-      "sha": "148f6ba273fe9593",
+      "sha": "be5b02d1b2669993",
       "entities": [
         "M006"
       ]
@@ -1233,6 +1233,13 @@
       "entities": [
         "M006",
         "M006/S02"
+      ]
+    },
+    "phases/06-command-palette/06-03-PLAN.md": {
+      "sha": "e77c21062b116c49",
+      "entities": [
+        "M006",
+        "M006/S03"
       ]
     }
   },

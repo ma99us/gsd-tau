@@ -18,7 +18,7 @@
 - [x] **S01: Fuzzy match engine and MRU hook** `risk:low` `depends:[]`
   > After this: vitest run passes; fuzzy('cp', 'compact context') scores higher than fuzzy('cp', 'open project'); MRU hook round-trips through localStorage.
 
-- [ ] **S02: App command registry** `risk:low` `depends:[S01]`
+- [x] **S02: App command registry** `risk:low` `depends:[S01]`
   > After this: useAppCommands(sessionId) returns a typed array; 'new-session', 'open-project', 'close-tab', 'compact-context', 'copy-last-turn', 'show-tray', 'toggle-auto-run-panel' entries present.
 
 - [ ] **S03: CommandPalette overlay component** `risk:medium` `depends:[S01,S02]`
