@@ -12,7 +12,7 @@
 
 ## Slices
 
-- [ ] **S01: Expand toast coverage to Stopped and milestone complete** `risk:low` `depends:[]`
+- [x] **S01: Expand toast coverage to Stopped and milestone complete** `risk:low` `depends:[]`
   > After this: Session crashes → Stopped toast appears. gsd_complete_milestone tool fires → milestone-complete toast appears. Blocker toast still works.
 
 - [ ] **S02: System tray icon with state badge** `risk:medium` `depends:[S01]`

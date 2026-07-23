@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "lastWriter": "gsd-pi",
-  "lastProjectedAt": "2026-07-22T20:06:18.700Z",
+  "lastProjectedAt": "2026-07-23T10:58:05.495Z",
   "projections": {
     "phases/02-session-manager-and-minimal-shell/02-ROADMAP.md": {
       "sha": "d0c138352413477a",
@@ -1812,7 +1812,7 @@
       ]
     },
     "phases/08-notifications-tray-and-taskbar-polish/08-ROADMAP.md": {
-      "sha": "b6853eee9792f9bc",
+      "sha": "76eba66bddf65361",
       "entities": [
         "M008"
       ]
