@@ -73,6 +73,7 @@ $RECYCLE.BIN/
 .bg-shell/
 
 # ── GSD baseline (auto-generated) ──
+.gsd/
 .gsd-worktrees/
 .gsd-backups/
 .gsd-id
@@ -103,18 +104,3 @@ target/
 vendor/
 .cache/
 tmp/
-.gsd/audit/
-.gsd/forensics/
-.gsd/parallel/
-.gsd/auto.lock
-.gsd/metrics.json
-.gsd/completed-units*.json
-.gsd/state-manifest.json
-.gsd/STATE.md
-.gsd/gsd.db*
-.gsd/journal/
-.gsd/doctor-history.jsonl
-.gsd/event-log.jsonl
-.gsd/DISCUSSION-MANIFEST.json
-.gsd/milestones/**/*-CONTINUE.md
-.gsd/milestones/**/continue.md
