@@ -257,6 +257,11 @@ export class SessionManager {
           const entry = this._sessions.get(handle.sessionId)
           if (entry) {
             entry.isRestored = true
+            // open() always initialises wasAutoRunning=false for a brand-new
+            // session — carry over the persisted value from the registry so
+            // the auto-resume prompt (docs/05-onboarding.md §6.4) can tell
+            // whether auto-mode was running when gsd-tau last closed.
+            entry.wasAutoRunning = record.wasAutoRunning
             if (record.sessionFile) {
               try {
                 // switchSession is part of the stable RPC contract (switch_session
@@ -397,6 +402,24 @@ export class SessionManager {
     entry.displayName = name
 
     console.log(`[SessionManager] session ${id} renamed "${prev}" → "${name}"`)
+    this._scheduleRegistrySave()
+  }
+
+  /**
+   * Clear the persisted `wasAutoRunning` flag for a session without waiting
+   * for a live `agent_start`/`agent_end` event to toggle it.
+   *
+   * Called when the user dismisses (or acts on) the auto-resume prompt
+   * (docs/05-onboarding.md §6.4) so the banner does not reappear on the next
+   * relaunch if auto-mode is never actually restarted.
+   *
+   * No-op when `id` is unknown (safe to call speculatively).
+   */
+  clearWasAutoRunning(id: SessionId): void {
+    const entry = this._sessions.get(id)
+    if (!entry) return
+    entry.wasAutoRunning = false
+    console.log(`[SessionManager] session ${id}: wasAutoRunning cleared (auto-resume prompt dismissed)`)
     this._scheduleRegistrySave()
   }
 

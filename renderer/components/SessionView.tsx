@@ -52,10 +52,13 @@ import { ConfirmModal } from './modals/ConfirmModal'
 import { InputModal } from './modals/InputModal'
 import { EditorModal } from './modals/EditorModal'
 import { FallbackModal } from './modals/FallbackModal'
+import { CopilotLoginModal } from './modals/CopilotLoginModal'
 import { AutoRunPanel } from './AutoRunPanel'
+import { AutoResumeBanner } from './AutoResumeBanner'
 import { MissingSessionBanner } from './MissingSessionBanner'
 import { useSessionsStore } from '../state/sessions-store'
 import { turnsReducer } from '../hooks/turnsReducer'
+import { parseDeviceCodeNotify, classifyLoginStatus } from '../hooks/detectDeviceCode'
 import type { ToolItem } from '../hooks/turnsReducer'
 import type {
   SessionId,
@@ -93,6 +96,12 @@ export interface SessionViewProps {
    */
   isMissingPath?: boolean
   /**
+   * True when the registry recorded auto-mode as running for this session
+   * when gsd-tau last closed. Shows the {@link AutoResumeBanner} prompt
+   * (docs/05-onboarding.md §6.4) until the user acts on or dismisses it.
+   */
+  wasAutoRunning?: boolean
+  /**
    * Ref forwarded to the active Composer's imperative handle.
    * Passed as `composerRef` only to the currently active tab (null for hidden
    * tabs) so `composerRef.current` always points to the visible composer.
@@ -109,7 +118,7 @@ export interface SessionViewProps {
 
 // ── SessionView ───────────────────────────────────────────────────────────────
 
-export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerRef, forcePickerOpen }: SessionViewProps): JSX.Element {
+export function SessionView({ sessionId, cwd, isActive, isMissingPath, wasAutoRunning, composerRef, forcePickerOpen }: SessionViewProps): JSX.Element {
   // ── Session state (from the global store — already subscribed) ─────────────
   const sessionState = useSessionsStore((s) => s.sessions[sessionId]?.state ?? 'Idle')
 
@@ -120,6 +129,28 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
   const [statusBarState, setStatusBarState] = useState<StatusBarState>(emptyStatusBarState)
   const [toasts, setToasts] = useState<ToastEntry[]>([])
 
+  // ── Copilot device-code login overlay (docs/70-auth-github-copilot.md) ────
+  // Non-null while a device-code notify (or its follow-up status/success/
+  // failure notifies) is being shown. Independent of the blocking modal
+  // queue below — the underlying `notify` request is informational and
+  // already auto-acked by the time this state is set.
+  const [copilotLogin, setCopilotLogin] = useState<{
+    url: string
+    code: string
+    status: 'pending' | 'success' | 'failure'
+    statusMessage?: string
+  } | null>(null)
+
+  // ── Auto-resume prompt (docs/05-onboarding.md §6.4) ────────────────────────
+  // Locally hides the banner once the user acts on it, without waiting for
+  // `wasAutoRunning` (sourced from the registry snapshot at store-init time)
+  // to be re-fetched. Reset to false whenever `sessionId` changes so a tab
+  // reused for a different phantom→live session id starts fresh.
+  const [autoResumeDismissed, setAutoResumeDismissed] = useState(false)
+  useEffect(() => {
+    setAutoResumeDismissed(false)
+  }, [sessionId])
+
   // ── Modal blocking queue ───────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalQueue>([])
 
@@ -129,6 +160,14 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
 
   // ── Editor prefill buffer (set_editor_text → consumed by EditorModal) ─────
   const editorPrefillRef = useRef<string | null>(null)
+
+  /**
+   * Mirrors `copilotLogin` so the `notify` handler (registered once per
+   * sessionId inside a `[sessionId]`-only effect) always reads the latest
+   * value instead of a stale closure — same pattern as `handleEventRef` below.
+   */
+  const copilotLoginRef = useRef(copilotLogin)
+  copilotLoginRef.current = copilotLogin
 
   /**
    * Tracks which assistant turn id is currently being built.
@@ -289,7 +328,40 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
     const handleRequest = (request: RpcExtensionUIRequest): void => {
       switch (request.method) {
         case 'notify': {
-          const entry = buildToastEntry(request as Extract<RpcExtensionUIRequest, { method: 'notify' }>)
+          const notifyReq = request as Extract<RpcExtensionUIRequest, { method: 'notify' }>
+
+          // If a Copilot device-code login overlay is already open, treat this
+          // notify as a follow-up status/success/failure update instead of a
+          // second toast (docs/70-auth-github-copilot.md: polling status,
+          // then a final success/failure notify).
+          if (copilotLoginRef.current !== null) {
+            const verdict = classifyLoginStatus(notifyReq.message)
+            if (verdict === 'success') {
+              setCopilotLogin((prev) => (prev ? { ...prev, status: 'success' } : prev))
+            } else if (verdict === 'failure') {
+              setCopilotLogin((prev) =>
+                prev ? { ...prev, status: 'failure', statusMessage: notifyReq.message } : prev,
+              )
+            } else {
+              setCopilotLogin((prev) =>
+                prev ? { ...prev, statusMessage: notifyReq.message } : prev,
+              )
+            }
+            void window.gsd.respondUI(sessionId, request.id, { value: '' })
+            break
+          }
+
+          // Not already in a login flow — check whether this notify is the
+          // initial device-code message. Detection is heuristic; if it
+          // doesn't match, fall through to the plain toast (no data loss).
+          const deviceCode = parseDeviceCodeNotify(notifyReq.message)
+          if (deviceCode !== null) {
+            setCopilotLogin({ url: deviceCode.url, code: deviceCode.code, status: 'pending' })
+            void window.gsd.respondUI(sessionId, request.id, { value: '' })
+            break
+          }
+
+          const entry = buildToastEntry(notifyReq)
           setToasts((prev) => addToastCapped(prev, entry))
           const capturedId = request.id
           setTimeout(() => {
@@ -358,6 +430,23 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
     void window.gsd.openRoadmap(sessionId)
   }, [sessionId])
 
+  // ── Copilot device-code login overlay actions ─────────────────────────────
+
+  const handleCopilotOpenBrowser = useCallback(() => {
+    const login = copilotLoginRef.current
+    if (login) void window.gsd.openExternal(login.url)
+  }, [])
+
+  const handleCopilotRetry = useCallback(() => {
+    setCopilotLogin(null)
+    // Re-run pi's device-code flow; the resulting notify re-opens the overlay.
+    void window.gsd.prompt(sessionId, '/login github-copilot')
+  }, [sessionId])
+
+  const handleCopilotClose = useCallback(() => {
+    setCopilotLogin(null)
+  }, [])
+
   const send = useCallback(
     async (text: string): Promise<void> => {
       // Add user turn immediately before the async IPC call so it appears
@@ -368,6 +457,19 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
     },
     [sessionId],
   )
+
+  // ── Auto-resume prompt actions (docs/05-onboarding.md §6.4) ───────────────
+
+  const handleAutoResume = useCallback(() => {
+    setAutoResumeDismissed(true)
+    void window.gsd.dismissAutoResume(sessionId)
+    void send('/gsd auto')
+  }, [sessionId, send])
+
+  const handleAutoResumeDismiss = useCallback(() => {
+    setAutoResumeDismissed(true)
+    void window.gsd.dismissAutoResume(sessionId)
+  }, [sessionId])
 
   const abort = useCallback(async (): Promise<void> => {
     await window.gsd.abort(sessionId)
@@ -443,6 +545,11 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
       {/* Model chip + cost display — live RPC state and cost_update events */}
       <SessionHeaderBar sessionId={sessionId} forcePickerOpen={forcePickerOpen} />
 
+      {/* Auto-resume prompt — shown when auto-mode was running at last close (§6.4) */}
+      {wasAutoRunning && !autoResumeDismissed && !isMissingPath && (
+        <AutoResumeBanner onResume={handleAutoResume} onDismiss={handleAutoResumeDismiss} />
+      )}
+
       {/* Missing-path banner replaces the stopped banner when the project dir is gone */}
       {isMissingPath ? (
         <MissingSessionBanner sessionId={sessionId} cwd={cwd} />
@@ -480,6 +587,19 @@ export function SessionView({ sessionId, cwd, isActive, isMissingPath, composerR
 
       {/* Inline toasts — fixed position, overlaid above composer */}
       <InlineToast toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Copilot device-code login overlay — independent of the blocking modal queue */}
+      {copilotLogin !== null && (
+        <CopilotLoginModal
+          url={copilotLogin.url}
+          code={copilotLogin.code}
+          status={copilotLogin.status}
+          statusMessage={copilotLogin.statusMessage}
+          onOpenBrowser={handleCopilotOpenBrowser}
+          onRetry={handleCopilotRetry}
+          onClose={handleCopilotClose}
+        />
+      )}
 
       {/* Active blocking modal from the queue */}
       {activeModal !== undefined && (

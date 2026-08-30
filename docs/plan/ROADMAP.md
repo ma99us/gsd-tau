@@ -58,7 +58,7 @@ services. Full IPC surface for model/thinking/stats/quota. 859 unit tests green.
 
 ## Later phases (sketches — get their own docs when we start them)
 
-### Phase 5 — Command palette
+### Phase 5 — Command palette ✅
 **Requirements:** R5 (full). Milestone: M006 (planned).
 See [40-ui-design.md](../40-ui-design.md#command-palette).
 
@@ -77,23 +77,50 @@ Keyboard shortcuts wired in this phase: `Ctrl+Shift+P` (palette), `Ctrl+.`
 (model picker — links to existing `ModelPickerDropdown`), `Ctrl+K` (focus
 composer), `Ctrl+/` (toggle auto-run panel — stubbed since panel comes in Phase 6).
 
-### Phase 6 — Auto-run panel
+**What was built:** `CommandPalette` (renderer/components/CommandPalette.tsx),
+`useAppCommands`/`usePiCommands`/`useMRU`/`fuzzyMatch` hooks. Wired into `App.tsx`
+with all four keyboard shortcuts above.
+
+### Phase 6 — Auto-run panel ✅
 **Requirements:** R4. See [50-auto-run-view.md](../50-auto-run-view.md).
 
 Progress tracker (Path A live from tool events + Path B reconciliation via
 `gsd_milestone_status`). Panel UI with milestone/slice/task tree.
 
-### Phase 7 — Notifications, tray, taskbar polish
+**What was built:** `ProgressTracker` + `reconcileProgress` (main/session/),
+`AutoRunPanel` component wired into `SessionView.tsx`, shown whenever a
+milestone is active. Pause/Refresh/Open-Roadmap actions wired to IPC.
+
+### Phase 7 — Notifications, tray, taskbar polish ✅
+
 **Requirements:** R3 (full). See [40-ui-design.md](../40-ui-design.md#notifications-and-tray).
 
 Windows toasts, tray icon with aggregate badge, taskbar overlay icons per window,
 "Close last window → minimise to tray" behaviour.
 
-### Phase 8 — GitHub Copilot login + provider onboarding
+**What was built:** `TrayManager` (main/os/tray.ts) instantiated and kept in
+sync via a session-state-change callback threaded through `registerHandlers`;
+`showBlockerToast`/`showStoppedToast`/`showMilestoneCompleteToast` (main/os/notifications.ts)
+already wired into the event pipeline. Per-window taskbar overlay icon (red
+"waiting" / amber "stopped") via `BrowserWindow.setOverlayIcon`. The window
+`close` handler now minimises to tray instead of quitting; only `before-quit`
+(tray "Quit", app-wide quit) tears sessions down and exits.
+
+### Phase 8 — GitHub Copilot login + provider onboarding (partial)
 **Requirements:** R8. See [70-auth-github-copilot.md](../70-auth-github-copilot.md).
 
 First-run provider-choice screen. Special Copilot login modal with device code
 + URL detection. "Sign out" menu.
+
+**What was built:** `CopilotLoginModal` (renderer/components/modals/) + the
+`parseDeviceCodeNotify`/`classifyLoginStatus` heuristics (renderer/hooks/detectDeviceCode.ts)
+wired into `SessionView.tsx`'s `notify` handler — detects pi's device-code
+shape, shows the code/URL/Open-browser overlay, tracks pending → success/failure
+via follow-up notifies. Added `window.gsd.openExternal()` IPC bridge
+(`shell.openExternal`) for the "Open browser" button.
+**Not yet built:** first-run provider-choice screen (only matters once a
+session can have zero configured providers — no such onboarding flow exists
+yet) and the "Sign out" menu item (`/logout github-copilot`).
 
 ### Phase 9 — Detach-to-window + multi-window management
 **Requirements:** R1 (full). See [ADR-006](../decisions/ADR-006-tabs-with-detach.md).
@@ -101,10 +128,20 @@ First-run provider-choice screen. Special Copilot login modal with device code
 Drag tab out of tab bar → new window. Move-to-window right-click menu. Window
 bounds persisted per window.
 
-### Phase 10 — Auto-resume prompt + auto-mode tracking
+### Phase 10 — Auto-resume prompt + auto-mode tracking ✅
 **Requirements:** R2 (full), R4 (persistence side).
 
 Persist `wasAutoRunning`. Restore banner "Auto-mode was running. Resume?".
+
+**What was built:** `wasAutoRunning` persisted per session in the registry
+(`main/session/session-manager.ts`), carried over on `restore()`, and set by
+the existing `agent_start`/`agent_end` handling in `registerHandlers`.
+`SessionManager.clearWasAutoRunning()` + the `dismissAutoResume` IPC/preload
+bridge clear it once the user acts. `AutoResumeBanner` (renderer/components/)
+wired into `SessionView.tsx` — shown whenever `wasAutoRunning` is true for the
+tab and not yet locally dismissed; "Resume auto" sends `/gsd auto` as a
+`prompt()` and clears the flag, "Dismiss" only clears the flag.
+
 
 ### Phase 11 — Version detection UI + guided pi install
 **Requirements:** R9, R11 (full). See [80-forward-compatibility.md](../80-forward-compatibility.md).

@@ -16,6 +16,7 @@ import type {
   StateChangedPayload,
 } from '../session/state-machine'
 import type { SessionManager } from '../session/session-manager'
+import type { SessionHandle } from '../session/session-handle'
 import type { RegistryStore } from '../persistence/registry-store'
 
 // ── IPC channel constants ──────────────────────────────────────────────────────
@@ -34,6 +35,12 @@ export const IPC = {
   LIST_SESSIONS: 'listSessions',
   CLOSE_SESSION: 'closeSession',
   RENAME_SESSION: 'renameSession',
+  /**
+   * Clear the persisted `wasAutoRunning` flag after the user acts on the
+   * auto-resume prompt (docs/05-onboarding.md §6.4), so it does not
+   * reappear on the next relaunch.
+   */
+  DISMISS_AUTO_RESUME: 'dismissAutoResume',
   /**
    * Return all sessions whose project directories were not found at restore time.
    * Renderer calls this during init() to catch races with the missing-path pushes.
@@ -106,6 +113,13 @@ export const IPC = {
   START_QUOTA_AUTH: 'startQuotaAuth',
   /** Remove gh-auth.json and disconnect the quota account. */
   DISCONNECT_QUOTA_AUTH: 'disconnectQuotaAuth',
+
+  // ---------------------------------------------------------------------------
+  // Misc
+  // ---------------------------------------------------------------------------
+
+  /** Open a URL in the system default browser via `shell.openExternal`. */
+  OPEN_EXTERNAL: 'openExternal',
 } as const
 
 /** Main → renderer push channels (ipcRenderer.on). */
@@ -354,10 +368,19 @@ export function parseOpenProjectArg(argv: string[]): string | null {
  *                                    Pass `undefined` to use a silent no-op.
  * @param showMilestoneCompleteToastFn Injected toast callback fired when a milestone completes.
  *                                    Pass `undefined` to use a silent no-op.
- * @returns An object with `cleanup` (removes all handlers) and
- *          `handleOpenProject` (shared with the second-instance handler so a
- *          forwarded `--open-project` path can open a new tab in the first
- *          instance without going through the IPC layer).
+ * @param onSessionStateChangeFn      Injected callback fired whenever a tracked session's
+ *                                    {@link SessionState} changes (including the initial
+ *                                    state right after wiring, and a final `null` when the
+ *                                    session is torn down). Used by the tray icon to keep
+ *                                    its aggregate-state badge in sync. Pass `undefined` to
+ *                                    use a silent no-op.
+ * @returns An object with `cleanup` (removes all handlers), `handleOpenProject`
+ *          (shared with the second-instance handler so a forwarded `--open-project`
+ *          path can open a new tab in the first instance without going through the
+ *          IPC layer), and `wireRestoredSession` (wires the same per-session state
+ *          machine/tracker/event-fan-out as `doOpenProject`, but for a session that
+ *          `SessionManager.restore()` already opened at startup — restore bypasses
+ *          `manager.open()`/`doOpenProject` so this wiring must be applied separately).
  */
 export function registerHandlers(
   manager: SessionManager,
@@ -368,7 +391,12 @@ export function registerHandlers(
   registryStore?: RegistryStore,
   getWinId?: () => string,
   quotaService?: QuotaService,
-): { cleanup: () => void; handleOpenProject: (cwd: string) => Promise<SessionId> } {
+  onSessionStateChangeFn: (sessionId: SessionId, cwd: string, state: SessionState | null) => void = () => {},
+): {
+  cleanup: () => void
+  handleOpenProject: (cwd: string) => Promise<SessionId>
+  wireRestoredSession: (sessionId: SessionId, cwd: string) => boolean
+} {
   const getWc: GetAllWebContents =
     getAllWebContents ?? (() => electronWebContents.getAllWebContents())
   const sessions = new Map<SessionId, SessionEntry>()
@@ -394,6 +422,23 @@ export function registerHandlers(
       console.log(`[handlers] doOpenProject cwd="${cwd}"`)
 
       const handle = await manager.open(cwd)
+      wireSession(handle, cwd)
+      return handle.sessionId
+  }
+
+  /**
+   * Wire per-session IPC state (state machine, blocker tracker, progress
+   * tracker, pi event fan-out, pre-shutdown hook) for an already-open
+   * {@link SessionHandle}.
+   *
+   * Shared by `doOpenProject` (freshly-opened sessions) and
+   * `wireRestoredSession` (sessions reopened by `SessionManager.restore()` at
+   * app startup — restore calls `manager.open()` directly and never goes
+   * through `doOpenProject`, so without this shared helper restored sessions
+   * would have no state machine, no event fan-out, and every session-scoped
+   * IPC call would fail with "unknown session" until the app was restarted).
+   */
+  function wireSession(handle: SessionHandle, cwd: string): void {
       const id = handle.sessionId
 
       const machine = new SessionStateMachine()
@@ -552,6 +597,7 @@ export function registerHandlers(
           sessionId: id,
           state: payload.to,
         })
+        onSessionStateChangeFn(id, cwd, payload.to)
       }
 
       const onMilestoneComplete = (milestone: GsdMilestone): void => {
@@ -638,7 +684,29 @@ export function registerHandlers(
         }
       })
 
-      return id
+      // Notify the tray (and any other state-change observer) of the initial state.
+      onSessionStateChangeFn(id, cwd, machine.state)
+  }
+
+  /**
+   * Wire a session that {@link SessionManager.restore} already opened at
+   * startup.  Looks up the live {@link SessionHandle} by id and delegates to
+   * {@link wireSession}.
+   *
+   * @returns `true` if the session was found and wired, `false` if `manager.get(id)`
+   *          returned `undefined` (should not normally happen — logged as a warning).
+   */
+  function wireRestoredSession(sessionId: SessionId, cwd: string): boolean {
+    const handle = manager.get(sessionId)
+    if (!handle) {
+      console.warn(
+        `[handlers] wireRestoredSession: session ${sessionId} not found in SessionManager — skipping wiring`,
+      )
+      return false
+    }
+    wireSession(handle, cwd)
+    console.log(`[handlers] wireRestoredSession: wired restored session ${sessionId} cwd="${cwd}"`)
+    return true
   }
 
   // ── openProject ──────────────────────────────────────────────────────────────
@@ -812,6 +880,7 @@ export function registerHandlers(
       if (entry) {
         entry.cleanup()
         sessions.delete(sessionId)
+        onSessionStateChangeFn(sessionId, entry.cwd, null)
       }
       // SessionManager.close() is idempotent for unknown ids.
       await manager.close(sessionId)
@@ -823,6 +892,20 @@ export function registerHandlers(
     IPC.RENAME_SESSION,
     (_event, sessionId: SessionId, name: string): void => {
       manager.rename(sessionId, name)
+    },
+  )
+
+  // ── dismissAutoResume ─────────────────────────────────────────────────────────
+  //
+  // Clears the persisted wasAutoRunning flag so the auto-resume prompt
+  // (docs/05-onboarding.md §6.4) does not reappear on the next relaunch.
+  // Called for both "Resume auto" (the renderer also sends /gsd auto — a
+  // fresh agent_start will set wasAutoRunning=true again if it actually
+  // resumes) and "Dismiss".
+  ipcMain.handle(
+    IPC.DISMISS_AUTO_RESUME,
+    (_event, sessionId: SessionId): void => {
+      manager.clearWasAutoRunning(sessionId)
     },
   )
 
@@ -1033,6 +1116,21 @@ export function registerHandlers(
     await quotaService?.disconnect()
   })
 
+  // ── openExternal ─────────────────────────────────────────────────────────────
+  //
+  // Opens `url` in the system default browser via Electron's `shell.openExternal`.
+  // Used by the Copilot device-code login modal's "Open browser" button (and any
+  // other future external-link affordance). Never throws to the renderer —
+  // failures (e.g. malformed URL, no default handler) are logged and swallowed
+  // since the modal already offers a "Copy URL" fallback.
+  ipcMain.handle(IPC.OPEN_EXTERNAL, async (_event, url: string): Promise<void> => {
+    try {
+      await shell.openExternal(url)
+    } catch (err) {
+      console.warn(`[handlers] openExternal failed for url="${url}":`, err)
+    }
+  })
+
   // ── cleanup ─────────────────────────────────────────────────────────────────
   function cleanup(): void {
     ipcMain.removeHandler(IPC.SHOW_FOLDER_PICKER)
@@ -1047,6 +1145,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.LIST_SESSIONS)
     ipcMain.removeHandler(IPC.CLOSE_SESSION)
     ipcMain.removeHandler(IPC.RENAME_SESSION)
+    ipcMain.removeHandler(IPC.DISMISS_AUTO_RESUME)
     ipcMain.removeHandler(IPC.LIST_MISSING_PATHS)
     ipcMain.removeHandler(IPC.REASSIGN_SESSION_CWD)
     ipcMain.removeHandler(IPC.SAVE_WINDOW_ACTIVE_TAB)
@@ -1061,6 +1160,7 @@ export function registerHandlers(
     ipcMain.removeHandler(IPC.REFRESH_QUOTA)
     ipcMain.removeHandler(IPC.START_QUOTA_AUTH)
     ipcMain.removeHandler(IPC.DISCONNECT_QUOTA_AUTH)
+    ipcMain.removeHandler(IPC.OPEN_EXTERNAL)
 
     for (const [, entry] of sessions) {
       entry.cleanup()
@@ -1068,5 +1168,5 @@ export function registerHandlers(
     sessions.clear()
   }
 
-  return { cleanup, handleOpenProject: doOpenProject }
+  return { cleanup, handleOpenProject: doOpenProject, wireRestoredSession }
 }

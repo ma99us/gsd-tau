@@ -320,6 +320,7 @@ function App(): JSX.Element {
             cwd={tab.cwd}
             isActive={id === activeTabId}
             isMissingPath={tab.isMissingPath}
+            wasAutoRunning={tab.wasAutoRunning}
             composerRef={id === activeTabId ? composerRef : null}
             forcePickerOpen={id === activeTabId ? forcePickerOpen : undefined}
           />

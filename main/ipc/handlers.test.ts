@@ -153,9 +153,9 @@ describe('registerHandlers', () => {
   // ── Handler registration ────────────────────────────────────────────────────
 
   describe('handler registration', () => {
-    it('registers handlers for all 26 IPC channels', () => {
+    it('registers handlers for all 28 IPC channels', () => {
       const ipcMock = ipcMain as unknown as IpcMock
-      expect(ipcMock.handle).toHaveBeenCalledTimes(26)
+      expect(ipcMock.handle).toHaveBeenCalledTimes(28)
       expect(capturedHandlers.has(IPC.SHOW_FOLDER_PICKER)).toBe(true)
       expect(capturedHandlers.has(IPC.OPEN_PROJECT)).toBe(true)
       expect(capturedHandlers.has(IPC.PROMPT)).toBe(true)
@@ -183,6 +183,9 @@ describe('registerHandlers', () => {
       expect(capturedHandlers.has(IPC.DISCONNECT_QUOTA_AUTH)).toBe(true)
       // Auto-run progress – open roadmap (T01):
       expect(capturedHandlers.has(IPC.OPEN_ROADMAP)).toBe(true)
+      // Misc:
+      expect(capturedHandlers.has(IPC.OPEN_EXTERNAL)).toBe(true)
+      expect(capturedHandlers.has(IPC.DISMISS_AUTO_RESUME)).toBe(true)
     })
   })
 
@@ -428,7 +431,7 @@ describe('registerHandlers', () => {
   // ── cleanup ──────────────────────────────────────────────────────────────────
 
   describe('cleanup', () => {
-    it('removes all 23 ipcMain handlers', () => {
+    it('removes all 25 ipcMain handlers', () => {
       const ipcMock = ipcMain as unknown as IpcMock
       cleanup()
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.SHOW_FOLDER_PICKER)
@@ -456,6 +459,9 @@ describe('registerHandlers', () => {
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.REFRESH_QUOTA)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.START_QUOTA_AUTH)
       expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.DISCONNECT_QUOTA_AUTH)
+      // Misc:
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.OPEN_EXTERNAL)
+      expect(ipcMock.removeHandler).toHaveBeenCalledWith(IPC.DISMISS_AUTO_RESUME)
     })
 
     it('stops event fan-out after cleanup', async () => {
