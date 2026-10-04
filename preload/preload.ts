@@ -37,8 +37,12 @@ const IPC = {
   LIST_SESSIONS: 'listSessions',
   CLOSE_SESSION: 'closeSession',
   RENAME_SESSION: 'renameSession',
-  LIST_MISSING_PATHS: 'listMissingPaths',
-  REASSIGN_SESSION_CWD: 'reassignSessionCwd',
+  /**
+   * Clear the persisted `wasAutoRunning` flag after the user acts on the
+   * auto-resume prompt. Mirrored from main/ipc/handlers.ts IPC.DISMISS_AUTO_RESUME.
+   */
+  DISMISS_AUTO_RESUME: 'dismissAutoResume',
+  LIST_MISSING_PATHS: 'listMissingPaths',  REASSIGN_SESSION_CWD: 'reassignSessionCwd',
   /**
    * Persist the active tab's project CWD for restore across reboots.
    * Mirrored from main/ipc/handlers.ts IPC.SAVE_WINDOW_ACTIVE_TAB.
@@ -76,6 +80,9 @@ const IPC = {
   REFRESH_QUOTA: 'refreshQuota',
   START_QUOTA_AUTH: 'startQuotaAuth',
   DISCONNECT_QUOTA_AUTH: 'disconnectQuotaAuth',
+
+  /** Open a URL in the system default browser via `shell.openExternal`. */
+  OPEN_EXTERNAL: 'openExternal',
 } as const
 
 const PUSH = {
@@ -166,6 +173,9 @@ export function createGsdApi(): GsdApi {
 
     renameSession: (sessionId: SessionId, name: string): Promise<void> =>
       ipcRenderer.invoke(IPC.RENAME_SESSION, sessionId, name),
+
+    dismissAutoResume: (sessionId: SessionId): Promise<void> =>
+      ipcRenderer.invoke(IPC.DISMISS_AUTO_RESUME, sessionId),
 
     listMissingPaths: (): Promise<MissingPathInfo[]> =>
       ipcRenderer.invoke(IPC.LIST_MISSING_PATHS),
@@ -409,6 +419,11 @@ export function createGsdApi(): GsdApi {
      */
     openRoadmap: (sessionId: SessionId): Promise<void> =>
       ipcRenderer.invoke(IPC.OPEN_ROADMAP, sessionId),
+
+    // ── Misc ────────────────────────────────────────────────────────────────────
+
+    openExternal: (url: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.OPEN_EXTERNAL, url),
   }
 }
 

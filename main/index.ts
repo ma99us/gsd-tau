@@ -1,7 +1,7 @@
 // Logger must be the first import — initialises file transport and overrides
 // console.* so all subsequent output is captured to %APPDATA%\gsd-tau\logs\main.log.
 import './logger'
-import { app, BrowserWindow, screen, webContents as electronWebContents } from 'electron'
+import { app, BrowserWindow, screen, webContents as electronWebContents, nativeImage } from 'electron'
 import { join, dirname } from 'path'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { SessionManager } from './session/session-manager'
@@ -11,6 +11,9 @@ import { QuotaService } from './services/quota-service'
 import { showBlockerToast, showStoppedToast, showMilestoneCompleteToast } from './os/notifications'
 import { resolvePiBinary, ResolvePiError } from './pi/resolve-pi'
 import { clampBoundsToDisplays } from './window/clamp-bounds'
+import { TrayManager, computeAggregate } from './os/tray'
+import type { SessionId } from '../shared/types'
+import type { SessionState } from './session/state-machine'
 
 // ── SessionManager singleton ───────────────────────────────────────────────────
 
@@ -25,6 +28,82 @@ const registryStore = new RegistryStore()
  * Exported so IPC handlers (added in later phases) can share this instance.
  */
 export const sessionManager = new SessionManager({ registryStore })
+
+// ── Tray + per-session state tracking (Phase 7) ─────────────────────────────
+
+/**
+ * Live snapshot of every open session's {@link SessionState}, kept in sync via
+ * the `onSessionStateChange` callback passed to `registerHandlers`. Feeds the
+ * tray icon's aggregate colour/tooltip/menu and each window's taskbar overlay
+ * icon. Entries are removed when a session closes (callback fires with `null`).
+ */
+const sessionStates = new Map<SessionId, SessionState>()
+
+/** Bring the primary window to the foreground, restoring it if minimised or hidden. */
+function focusMainWindow(): void {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  }
+}
+
+const trayManager = new TrayManager(focusMainWindow)
+
+/** Solid-colour 16×16 NativeImage — same technique as tray.ts's makeIcon. */
+function makeOverlayIcon(r: number, g: number, b: number) {
+  const buf = Buffer.alloc(16 * 16 * 4)
+  for (let i = 0; i < 16 * 16; i++) {
+    buf[i * 4 + 0] = r
+    buf[i * 4 + 1] = g
+    buf[i * 4 + 2] = b
+    buf[i * 4 + 3] = 255
+  }
+  return nativeImage.createFromBuffer(buf, { width: 16, height: 16 })
+}
+
+/** Taskbar overlay colours — mirrors tray.ts's ICON_COLOURS for waiting/stopped. */
+const OVERLAY_COLOURS = {
+  waiting: { r: 239, g: 68, b: 68 },
+  stopped: { r: 245, g: 158, b: 11 },
+} as const
+
+/**
+ * Refresh the tray icon and every window's Windows taskbar overlay icon from
+ * the current `sessionStates` snapshot. Called on every session state change,
+ * open, and close.
+ */
+function refreshTrayAndOverlay(): void {
+  trayManager.update(sessionStates)
+
+  const aggregate = computeAggregate(sessionStates)
+  const overlay = aggregate === 'waiting' || aggregate === 'stopped' ? aggregate : null
+
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue
+    if (overlay) {
+      const { r, g, b } = OVERLAY_COLOURS[overlay]
+      win.setOverlayIcon(
+        makeOverlayIcon(r, g, b),
+        overlay === 'waiting' ? 'Waiting on you' : 'Session stopped',
+      )
+    } else {
+      win.setOverlayIcon(null, '')
+    }
+  }
+}
+
+/** Callback passed to `registerHandlers` — keeps `sessionStates` and the tray in sync. */
+function handleSessionStateChange(
+  sessionId: SessionId,
+  _cwd: string,
+  state: SessionState | null,
+): void {
+  if (state === null) sessionStates.delete(sessionId)
+  else sessionStates.set(sessionId, state)
+  refreshTrayAndOverlay()
+}
 
 // ── Shutdown guard ─────────────────────────────────────────────────────────────
 
@@ -61,6 +140,15 @@ app.on('before-quit', (event) => {
   // the current state (sessions still open, wasAutoRunning flags) reaches disk
   // even when the debounce window has not yet elapsed.
   registryStore.flush()
+
+  // Notify every renderer so it shows the blocking closing overlay. Windows
+  // are typically hidden (not destroyed) at this point — minimising to tray
+  // no longer destroys webContents, so this always reaches a live renderer.
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(PUSH.APP_CLOSING)
+    }
+  }
 
   const ids = sessionManager.activeSessions
   const shutdownStart = Date.now()
@@ -327,7 +415,7 @@ if (!gotSingleInstanceLock) {
     )
 
     let _winId = ''
-    const { cleanup: cleanupHandlers, handleOpenProject } = registerHandlers(
+    const { cleanup: cleanupHandlers, handleOpenProject, wireRestoredSession } = registerHandlers(
       sessionManager,
       undefined,
       showBlockerToast,
@@ -336,6 +424,7 @@ if (!gotSingleInstanceLock) {
       registryStore,
       () => _winId,
       quotaService,
+      handleSessionStateChange,
     )
     _handleOpenProject = handleOpenProject
     // Remove IPC handlers when the app fully quits so Electron does not warn
@@ -344,6 +433,10 @@ if (!gotSingleInstanceLock) {
 
     quotaService.start()
     app.once('will-quit', () => quotaService.stop())
+
+    // Tray icon — always-on while the app runs, even with all windows hidden.
+    trayManager.init()
+    app.once('will-quit', () => trayManager.destroy())
 
     // Restore saved window bounds, clamped to visible screen area.
     // Use the first persisted window record if available; default 1200×800 on
@@ -382,52 +475,37 @@ if (!gotSingleInstanceLock) {
     win.on('resize', scheduleBoundsSave)
 
     // Save final bounds immediately on close so they survive quick-resize-then-quit.
-    // We preventDefault on the first close event, notify the renderer so it can
-    // show a blocking overlay, close all sessions gracefully, then destroy the
-    // window (which re-fires the event without preventDefault).
-    let _appQuitReady = false
+    //
+    // Behaviour (docs/40-ui-design.md "Close last window ≠ quit"): clicking X
+    // on the last window minimises gsd-tau to the system tray instead of
+    // quitting — sessions keep running. Only a real quit (tray "Quit", or the
+    // app-wide `before-quit` handler above) tears sessions down and exits.
+    // `_quitting` distinguishes the two: `before-quit` sets it, does the
+    // graceful session shutdown itself, then re-triggers `app.quit()`, whose
+    // second pass lets Electron actually destroy the window — at which point
+    // this handler sees `_quitting === true` and gets out of the way.
     win.on('close', (e) => {
-      if (_appQuitReady) {
-        // Second pass — allow the close to proceed.
-        // Bounds were already saved on the first pass; do NOT call
-        // updateWindowBounds here or it queues a new empty-history save that
-        // overwrites the sessionHistory we just flushed.
-        console.log(`[window-bounds] final close pass for window ${winId}`)
-        app.quit()
-        return
-      }
-
-      // First pass — save bounds, intercept, show overlay, shut down sessions.
+      // Save bounds every time — cheap, idempotent, and correct whether this
+      // close ends in a hide (tray) or a real destroy (quit).
       if (_boundsTimer) {
         clearTimeout(_boundsTimer)
         _boundsTimer = null
       }
       registryStore.updateWindowBounds(winId, win.getBounds())
-      console.log(`[window-bounds] final save on close for window ${winId}`)
 
-      e.preventDefault()
-      _appQuitReady = true
-
-      // Notify renderer so it shows the blocking closing overlay.
-      if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-        win.webContents.send(PUSH.APP_CLOSING)
+      if (_quitting) {
+        // Real quit in progress — before-quit already closed every session
+        // and flushed the registry. Let Electron proceed with the close.
+        console.log(`[window-bounds] final save on quit-close for window ${winId}`)
+        return
       }
 
-      // Close all active sessions gracefully then let the window close.
-      const ids = sessionManager.activeSessions
-      console.log(`[shutdown] closing ${ids.length} session(s) before quit:`, ids.join(', '))
-      void Promise.all(ids.map((id) => sessionManager.close(id).catch((err) => {
-        console.warn(`[shutdown] session ${id} close error:`, err)
-      }))).then(() => {
-        console.log(
-          `[shutdown] all sessions closed`,
-          `— history size=${sessionManager.activeSessions.length}`,
-          `— calling registryStore.flush()`,
-        )
-        registryStore.flush()
-        console.log('[shutdown] flush done — closing window')
-        win.close() // re-fires event; _appQuitReady is true so it passes through
-      })
+      // Manual close (X / Alt+F4) with no explicit quit requested — minimise
+      // to tray. Sessions and their pi processes keep running untouched.
+      console.log(`[window-bounds] final save on close for window ${winId}`)
+      e.preventDefault()
+      win.hide()
+      console.log(`[window] minimised to tray (window ${winId})`)
     })
 
     // Restore sessions from the registry in parallel.  All opens are attempted
@@ -436,6 +514,19 @@ if (!gotSingleInstanceLock) {
     // a MissingSessionBanner without waiting for the full restore to finish.
     try {
       const restoreResult = await sessionManager.restore(registry.sessions)
+
+      // Wire the same per-session state machine/tracker/event-fan-out that
+      // doOpenProject applies to freshly-opened sessions.  SessionManager.restore()
+      // calls manager.open() directly and never goes through doOpenProject, so
+      // without this every restored session would have no live event stream and
+      // every session-scoped IPC call (getState, respondUI, getProgress, …)
+      // would fail with "unknown session" until the next app restart.
+      const cwdById = new Map(registry.sessions.map((r) => [r.id, r.cwd]))
+      for (const id of restoreResult.restored) {
+        const cwd = cwdById.get(id)
+        if (cwd) wireRestoredSession(id, cwd)
+      }
+
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
           // Fan out one MISSING_PATH push per missing session before the
@@ -476,6 +567,11 @@ if (!gotSingleInstanceLock) {
 }
 
 app.on('window-all-closed', () => {
-  // gsd-tau is Windows-only; always quit when the last window closes.
+  // Under normal operation a manual X-click hides the window (see the
+  // per-window 'close' handler) rather than destroying it, so this handler
+  // only fires once Electron actually destroys every window — which now only
+  // happens as the tail end of a real quit sequence (before-quit's second
+  // app.quit() pass). Calling app.quit() again here is a harmless no-op in
+  // that case, and a safety net if a window is ever destroyed unexpectedly.
   app.quit()
 })

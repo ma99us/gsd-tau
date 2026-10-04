@@ -14,12 +14,10 @@ windows, survives reboots.
 **Config dir:** `%APPDATA%\gsd-tau\`. **AppUserModelID:** `io.opengsd.gsd-tau`.
 **pi min version:** 1.11.0.
 
-**Repo status:** planning complete. Phases 1–3 are fully pre-planned as GSD
-milestones M002–M004 with tasks. Start coding with `gsd auto` targeting M002
-(Phase 1 — Session Manager). No source code exists yet.
-
-See `.gsd/phases/02-.../02-CONTEXT.md` for M002 execution context. All
-decisions are captured there — do not re-derive from scratch.
+**Repo status:** Phases 1–3 implemented (M002–M004 complete). Source lives
+across `main/`, `renderer/`, `shared/`, `preload/`. Later phases are sketched
+in [docs/plan/ROADMAP.md](./docs/plan/ROADMAP.md) and get their own doc when
+work starts.
 
 ## Core rules (always apply)
 
@@ -81,8 +79,41 @@ docs/
     └── PHASE-3-project-and-session-switcher.md
 ```
 
-Source code layout is defined in [docs/10-architecture.md](./docs/10-architecture.md)
-under the module map — read that once before creating new files.
+Source layout (see [docs/10-architecture.md](./docs/10-architecture.md) for full module map):
+
+```
+main/
+├── index.ts              ← bootstrap, window factory, restore pipeline
+├── logger.ts             ← electron-log → %APPDATA%\gsd-tau\logs\main.log
+├── ipc/handlers.ts       ← IPC channel constants + handler registration
+├── session/              ← SessionManager, SessionHandle, 4-state FSM
+│                           (Working | Idle | Stopped | Waiting)
+├── pi/                   ← resolvePiBinary(), createClient()
+├── services/             ← QuotaService (always-on polling, main-process only)
+├── persistence/          ← RegistryStore: atomic tmp→bak→primary JSON writes
+├── os/                   ← tray.ts, notifications.ts
+└── window/               ← clamp-bounds.ts
+shared/types.ts           ← cross-process types: SessionState, GsdApi, RegistryV1
+preload/preload.ts        ← contextBridge → window.gsd.*
+renderer/
+├── App.tsx               ← tab management, keyboard shortcuts, closing overlay
+├── state/sessions-store.ts ← Zustand: TabEntry[], activeTabId, tabOrder
+└── components/           ← SessionView, Composer, TurnList, ToolCard, etc.
+```
+
+**Path aliases** (electron-vite + vitest): `@shared` → `shared/`, `@main` → `main/`,
+`@renderer` → `renderer/`. Use these in all new imports.
+
+**Development commands:**
+
+```
+pnpm dev          # electron-vite dev (hot reload, all 3 processes)
+pnpm build        # electron-vite build → out/
+pnpm test         # vitest run — unit tests in main/, shared/, preload/, renderer/
+pnpm test:watch   # vitest watch
+pnpm test:e2e     # playwright test (test/smoke.spec.ts, reboot-cycle, ui-requests)
+pnpm dist         # electron-builder → NSIS installer in dist/
+```
 
 ---
 

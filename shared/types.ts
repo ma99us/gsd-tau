@@ -194,6 +194,25 @@ export interface GsdApi {
    * No-op with a warning when no active milestone or directory is not found.
    */
   openRoadmap(sessionId: SessionId): Promise<void>
+
+  // ---------------------------------------------------------------------------
+  // Misc
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Open a URL in the user's default system browser via `shell.openExternal`.
+   * Used by the Copilot device-code login modal's "Open browser" button.
+   * Resolves once Electron has dispatched the open request (does not wait for
+   * the external browser process itself).
+   */
+  openExternal(url: string): Promise<void>
+
+  /**
+   * Clear the persisted `wasAutoRunning` flag for a session after the user
+   * acts on the auto-resume prompt (docs/05-onboarding.md §6.4), so it does
+   * not reappear on the next relaunch.
+   */
+  dismissAutoResume(sessionId: SessionId): Promise<void>
 }
 
 /** Lightweight summary passed over IPC and persisted in the registry. */
